@@ -1,0 +1,177 @@
+/* ==========================================================================
+   GLOBAL FIXES & RESPONSIVE COMPATIBILITY
+   iOS, Windows Browsers, and Mobile Responsiveness
+   ========================================================================== */
+
+/* 1. Prevent iOS Safari auto-zoom on inputs */
+input[type="text"], 
+input[type="password"], 
+input[type="email"], 
+input[type="number"], 
+input[type="search"], 
+input[type="tel"], 
+input[type="url"], 
+textarea, 
+select,
+.form-input {
+    font-size: 16px !important;
+}
+
+/* 2. Remove default iOS/Windows styling for buttons and selects */
+select, button, .btn, input[type="submit"], input[type="button"] {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
+/* 3. Smooth scrolling for scrollable areas on iOS */
+body, .main-content, .table-container, .modal-box, .content, .sidebar {
+    -webkit-overflow-scrolling: touch;
+}
+
+/* 4. Remove tap highlight color on iOS for cleaner interactions */
+* {
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* 5. Better font rendering on Windows and macOS */
+body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* 6. Fix Windows Edge clear button in inputs overlapping with custom UI */
+input[type="text"]::-ms-clear,
+input[type="text"]::-ms-reveal,
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+    display: none;
+    width: 0;
+    height: 0;
+}
+
+/* 7. Fix iOS Safari double tap to zoom issue on buttons */
+button, .btn, a, summary {
+    touch-action: manipulation;
+}
+
+/* ==========================================================================
+   MOBILE RESPONSIVENESS OVERRIDES
+   ========================================================================== */
+
+/* Employee Overview Cards */
+.emp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; margin-bottom: 30px; }
+.emp-card { background: #ffffff; padding: 20px 24px; border-radius: 12px; border: 1px solid #e2e8f0; display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 16px; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
+.emp-card:hover { transform: translateY(-3px); box-shadow: 0 4px 15px rgba(0,0,0,0.02); }
+.emp-title { color: #94a3b8; font-size: 11px; font-weight: 700; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+.emp-val { font-size: 24px; font-weight: 800; color: #0f172a; }
+.emp-icon { grid-column: 1; grid-row: 1 / span 2; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px; margin-bottom: 0; }
+
+.text-muted { color: #64748b; }
+
+@media (max-width: 768px) {
+    /* Make tables horizontally scrollable if they overflow */
+    .table-container, .card, .report-section {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        width: 100%;
+        display: block;
+    }
+    
+    table {
+        min-width: 600px; /* Ensure tables don't squish too much */
+    }
+
+    /* Stack grid layouts (like stats) to 1 column on mobile */
+    .stats-grid, .grid-2, .form-row {
+        grid-template-columns: 1fr !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    /* Adjust main content padding for smaller screens */
+    .topbar {
+        padding: 15px 20px !important;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .content {
+        padding: 0 15px 20px 15px !important;
+    }
+
+    /* Modals should be full width with some margin */
+    .modal-box {
+        width: 90% !important;
+        padding: 20px !important;
+        margin: 20px auto;
+    }
+
+    /* Login container adjustments */
+    .login-container {
+        padding: 30px 20px !important;
+        width: 90% !important;
+    }
+}
+
+.switch input:checked + .slider { background-color: #3b82f6 !important; }
+.switch .slider:before { position: absolute; content: ''; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+.switch input:checked + .slider:before { transform: translateX(20px); }
+
+/* ==========================================================================
+   PREMIUM UI SHARED STYLES (LIGHT MODE DEFAULTS)
+   ========================================================================== */
+.profile-avatar { width: 40px; height: 40px; border-radius: 50%; background: #1e293b; color: #94a3b8; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; border: 1px solid rgba(255,255,255,0.1); }
+.premium-stat-card { background: #ffffff; border: 1px solid var(--border-light); border-radius: 16px; padding: 24px; display: flex; align-items: center; gap: 20px; color: var(--text-main-light); flex: 1; min-width: 280px; box-shadow: 0 4px 15px rgba(0,0,0,0.02); }
+.premium-stat-card .icon-box { width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+.premium-stat-card .info-area { flex: 1; }
+.premium-stat-card .info-title { color: var(--text-muted-light); font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+.premium-stat-card .info-value { font-size: 20px; font-weight: 700; color: var(--text-main-light); }
+
+.premium-action-card { background: #ffffff; border-radius: 16px; border: 1px solid var(--border-light); padding: 30px; text-align: center; position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
+.premium-action-card.lunch-card { border-left: 3px solid #ef4444; box-shadow: inset 20px 0 50px -30px rgba(239, 68, 68, 0.05); }
+.premium-action-card.short-card { border-left: 3px solid #8b5cf6; box-shadow: inset 20px 0 50px -30px rgba(139, 92, 246, 0.05); }
+
+.timer-circle { width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 20px auto; display: flex; align-items: center; justify-content: center; position: relative; }
+.lunch-card .timer-circle { background: radial-gradient(circle, rgba(239,68,68,0.15) 0%, rgba(0,0,0,0) 70%); border: 1px solid rgba(239, 68, 68, 0.2); color: #ef4444; }
+.short-card .timer-circle { background: radial-gradient(circle, rgba(139,92,246,0.15) 0%, rgba(0,0,0,0) 70%); border: 1px solid rgba(139, 92, 246, 0.2); color: #a855f7; }
+.progress-bar-container { width: 100%; height: 8px; background: #e2e8f0; border-radius: 4px; margin: 20px 0; overflow: hidden; display: flex; align-items: center; }
+.progress-bar-fill { height: 100%; background: linear-gradient(90deg, #6366f1, #a855f7); width: 100%; }
+
+.btn-premium { width: 100%; padding: 16px; font-size: 16px; font-weight: 700; border: none; border-radius: 12px; cursor: pointer; transition: 0.2s; }
+.btn-red { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; box-shadow: 0 4px 15px -3px rgba(239, 68, 68, 0.4); }
+.btn-red:hover:not(:disabled) { box-shadow: 0 6px 20px -3px rgba(239, 68, 68, 0.6); transform: translateY(-2px); }
+.btn-purple { background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; box-shadow: 0 4px 15px -3px rgba(139, 92, 246, 0.4); }
+.btn-purple:hover:not(:disabled) { box-shadow: 0 6px 20px -3px rgba(139, 92, 246, 0.6); transform: translateY(-2px); }
+.btn-premium:disabled { background: #e2e8f0; color: #94a3b8; cursor: not-allowed; box-shadow: none; transform: none; }
+
+.status-badge-dark { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 6px 16px; border-radius: 20px; font-weight: 600; font-size: 13px; margin-bottom: 24px; background: rgba(0, 0, 0, 0.04); border: 1px solid rgba(0,0,0,0.05); color: var(--text-muted-light); }
+.timer-display-premium { font-size: 48px; font-weight: 800; margin-bottom: 5px; font-variant-numeric: tabular-nums; color: var(--text-main-light); }
+.timer-label-premium { color: var(--text-muted-light); font-weight: 600; font-size: 14px; margin-bottom: 25px; }
+
+/* ==========================================================================
+   UTILITY CLASSES (To replace inline styles)
+   ========================================================================== */
+.bg-white { background-color: #ffffff; }
+.bg-yellow-50 { background-color: #fffbeb; }
+.bg-blue-50 { background-color: #eff6ff; }
+.bg-green-50 { background-color: #f0fdf4; }
+.bg-purple-50 { background-color: #fdf4ff; }
+.bg-emerald-50 { background-color: #ecfdf5; }
+.bg-red-50 { background-color: #fef2f2; }
+.bg-amber-100 { background-color: #fef3c7; }
+.bg-slate-200 { background-color: #e2e8f0; }
+.bg-slate-100 { background-color: #f1f5f9; }
+.bg-transparent { background-color: transparent; }
+.bg-slate-800 { background-color: #1e293b; }
+.bg-blue-600 { background-color: #2563eb; }
+
+.text-blue-600 { color: #2563eb; }
+.text-green-600 { color: #16a34a; }
+.text-emerald-600 { color: #059669; }
+.text-red-500 { color: #ef4444; }
+.text-amber-600 { color: #d97706; }
+.text-slate-600 { color: #475569; }
+.text-slate-500 { color: #64748b; }
+.text-white { color: #ffffff; }
