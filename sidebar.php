@@ -545,7 +545,7 @@ if (isset($conn) && $role_slug !== 'employee') {
                             Lunch Requests
                             <?php if (isset($pending_req_count) && $pending_req_count > 0): ?>
                                 <span
-                                    class="text-red-500 text-white" style="background-  font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: bold;"><?php echo $pending_req_count; ?></span>
+                                    class="text-red-500 text-white" style="background-color: #ef4444; font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: bold;"><?php echo $pending_req_count; ?></span>
                             <?php endif; ?>
                         </li>
                     </a>
@@ -556,7 +556,7 @@ if (isset($conn) && $role_slug !== 'employee') {
                             Override Request
                             <?php if (isset($pending_override_count) && $pending_override_count > 0): ?>
                                 <span
-                                    class="text-red-500 text-white" style="background-  font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: bold;"><?php echo $pending_override_count; ?></span>
+                                    class="text-red-500 text-white" style="background-color: #ef4444; font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: bold;"><?php echo $pending_override_count; ?></span>
                             <?php endif; ?>
                         </li>
                     </a>

@@ -491,3 +491,24 @@ UNLOCK TABLES;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
 -- Dump completed on 2026-09-04  8:58:09
+
+-- ==========================================
+-- CUSTOM PATCHES APPLIED BY ANTIGRAVITY
+-- ==========================================
+
+-- 1. Fix Leave Request Status Enum & Employee Leave Balance Default (from fix.php)
+ALTER TABLE `leave_requests` MODIFY COLUMN `status` ENUM('pending', 'pending_hr', 'approved', 'rejected') DEFAULT 'pending';
+ALTER TABLE `employees` ALTER COLUMN `annual_leave_balance` SET DEFAULT 8;
+
+-- 2. Rename 'Early Leave' to 'Emergency Leave' (from db_update.php)
+UPDATE `leave_requests` SET `leave_type` = 'Emergency Leave' WHERE `leave_type` = 'Early Leave';
+-- Note: checkout_status is NOT a database column (it is computed in PHP). Removing this invalid query.
+-- UPDATE `attendance_logs` SET `checkout_status` = 'Emergency Leave' WHERE `checkout_status` = 'Early Leave';
+
+-- 3. Reset Interns Leave Balances to 0 (from update_interns_leave.php)
+UPDATE `employees` 
+SET `annual_leave_quota` = 0, 
+    `annual_leave_balance` = 0, 
+    `sick_leave_quota` = 0, 
+    `sick_leave_balance` = 0 
+WHERE `employment_type` LIKE 'Intern%';

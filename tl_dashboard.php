@@ -301,27 +301,7 @@ $vio_data_values = array_values($vio_data);
             <!-- END DASHBOARD FILTERS -->
     
             
-            <!-- PENDING OVERRIDES -->
-            <?php if (mysqli_num_rows($pending_overrides) > 0): ?>
-            <div class="bg-white" style="border: 1px solid #fcd34d; padding: 20px; border-radius: 16px; margin-bottom: 24px;">
-                <h3 class="text-amber-600" style=" margin-bottom: 15px; font-size: 16px;">⏱️ Pending Lunchtime Overrides</h3>
-                <div style="display: flex; gap: 16px; flex-wrap: wrap;">
-                    <?php while($req = mysqli_fetch_assoc($pending_overrides)): ?>
-                    <div class="bg-white" style=" padding: 16px; border-radius: 12px; border: 1px solid #fde68a; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); min-width: 250px;">
-                        <div class="text-slate-900" style="font-weight: 700;  margin-bottom: 4px;"><?php echo htmlspecialchars($req['name']); ?></div>
-                        <div class="text-slate-500" style="font-size: 13px;  margin-bottom: 12px;">"<?php echo htmlspecialchars($req['reason']); ?>"<br><span class="text-red-500" style=" font-weight: bold;">Requested Duration: <?php echo htmlspecialchars($req['duration']); ?> mins</span></div>
-                        <form method="POST" style="display: flex; gap: 8px;">
-                            <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
-                            <input type="hidden" name="req_id" value="<?php echo $req['id']; ?>">
-                            <button type="submit" name="action" value="approve" class="text-emerald-600" style="flex: 1; padding: 8px; border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 6px; background: rgba(16, 185, 129, 0.1);  font-weight: bold; cursor: pointer; transition: 0.2s;">Approve</button>
-                            <button type="submit" name="action" value="reject" style="flex: 1; padding: 8px; border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 6px; background: rgba(239, 68, 68, 0.1); color: #dc2626; font-weight: bold; cursor: pointer; transition: 0.2s;">Reject</button>
-                            <input type="hidden" name="process_override" value="1">
-                        </form>
-                    </div>
-                    <?php endwhile; ?>
-                </div>
-            </div>
-            <?php endif; ?>
+
 
             <!-- STAT CARDS -->
             <div class="stats-grid">
