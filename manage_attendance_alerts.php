@@ -41,6 +41,7 @@ $violation_sql = "SELECT a.*, e.name, e.department
                   JOIN employees e ON a.emp_id = e.emp_id 
                   WHERE a.date BETWEEN '$start_date' AND '$end_date' 
                   AND a.flag IN ('Late', 'Early', 'Both') 
+                  AND NOT ((a.clock_in IS NULL OR a.clock_in = '') AND (a.clock_out IS NULL OR a.clock_out = ''))
                   $emp_filter_sql
                   ORDER BY a.date DESC, a.clock_in DESC";
 $violation_result = mysqli_query($conn, $violation_sql);

@@ -267,7 +267,7 @@ $vio_data_values = array_values($vio_data);
 
     <main class="main-content">
         <header class="topbar">
-            <div class="page-title">Live Attendance</div>
+            <div class="page-title">Dashboard</div>
             <div class="refresh-bar">
                 <div class="live-dot"></div>
                 Auto-refreshes every 30s

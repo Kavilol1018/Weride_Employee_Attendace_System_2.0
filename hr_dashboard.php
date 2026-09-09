@@ -205,7 +205,7 @@ $today_breaks = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt F
 
     <main class="main-content">
         <header class="topbar">
-            <div class="page-title">Live Attendance</div>
+            <div class="page-title">Dashboard</div>
             <div class="refresh-bar">
                 <div class="live-dot"></div>
                 Auto-refreshes every 30s

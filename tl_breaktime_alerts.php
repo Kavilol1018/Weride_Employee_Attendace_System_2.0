@@ -5,6 +5,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'tl') {
     exit();
 }
 include 'db_connect.php';
+mysqli_query($conn, "UPDATE system_alerts SET is_read = 1 WHERE is_read = 0");
 
 $start_date = isset($_GET['start_date']) ? mysqli_real_escape_string($conn, $_GET['start_date']) : date('Y-m-d');
 $end_date = isset($_GET['end_date']) ? mysqli_real_escape_string($conn, $_GET['end_date']) : date('Y-m-d');
