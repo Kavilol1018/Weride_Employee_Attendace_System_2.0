@@ -1,6 +1,6 @@
 <?php
 mysqli_report(MYSQLI_REPORT_OFF);
-$host = "127.0.0.1";
+$host = "localhost";
 $username = "u251904595_weride";
 $password = "Weride_2026";
 $database = "u251904595_lunchbreak";
@@ -10,10 +10,11 @@ $conn = @mysqli_connect($host, $username, $password, $database);
 if (!$conn) {
     // Fallback to local XAMPP default credentials
     $conn = @mysqli_connect($host, "root", "", $database);
-}
-
-if (!$conn) {
-    die("Connection failed: " . mysqli_connect_error());
+    
+    // If even the fallback fails, show a more helpful error
+    if (!$conn) {
+        die("Connection failed: Could not connect with Hostinger credentials (check if DB user is assigned) OR local XAMPP credentials (check if MySQL is running). Error: " . mysqli_connect_error());
+    }
 }
 
 // FORCE CORRECT TIMEZONE GLOBALLY
