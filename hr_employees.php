@@ -528,10 +528,6 @@ if (isset($_POST['reset_password'])) {
                     <div style="font-size:12px; color:#166534; font-weight:600;">Sick</div>
                     <div style="font-size:22px; font-weight:800; color:#15803d;" id="det_sl">14</div>
                 </div>
-                <div class="bg-purple-50" style=" padding:12px; border-radius:10px; border:1px solid #f5d0fe;">
-                    <div style="font-size:12px; color:#86198f; font-weight:600;">Casual</div>
-                    <div style="font-size:22px; font-weight:800; color:#a21caf;" id="det_cl">7</div>
-                </div>
             </div>
         </div>
     </div>

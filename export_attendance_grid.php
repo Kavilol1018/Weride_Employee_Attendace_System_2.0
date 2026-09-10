@@ -144,17 +144,17 @@ while ($emp = mysqli_fetch_assoc($emp_query)) {
             } else {
                 $status = $att_status;
             }
-        } elseif (isset($leaves[$emp_id][$d])) {
-            $status = $leaves[$emp_id][$d];
-            if ($status == 'AL') $annual_leave_count++;
-            elseif ($status == 'SL') $sick_leave_count++;
-            elseif (in_array($status, ['HD', '0.5'])) $present_count += 0.5;
         } elseif (isset($public_holidays_db[$d])) {
             $status = 'PH';
             $public_holiday_count++;
         } elseif ($is_weekend) {
             $status = 'WO';
             $weekend_count++;
+        } elseif (isset($leaves[$emp_id][$d])) {
+            $status = $leaves[$emp_id][$d];
+            if ($status == 'AL') $annual_leave_count++;
+            elseif ($status == 'SL') $sick_leave_count++;
+            elseif (in_array($status, ['HD', '0.5'])) $present_count += 0.5;
         } else {
             if ($current_date_time <= strtotime("today")) {
                 $status = 'A';

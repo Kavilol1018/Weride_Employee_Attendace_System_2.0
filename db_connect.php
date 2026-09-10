@@ -1,6 +1,6 @@
 <?php
 mysqli_report(MYSQLI_REPORT_OFF);
-$host = "localhost";
+$host = "127.0.0.1";
 $username = "u251904595_weride";
 $password = "Weride_2026";
 $database = "u251904595_lunchbreak";
@@ -51,7 +51,7 @@ if (empty($_SESSION['csrf_token'])) {
 // Auto Schema Migration Setup
 include_once __DIR__ . '/db_setup.php';
 
-function check_leave_capacity($conn, $start_date, $end_date, $emp_id) {
+function check_leave_capacity(mysqli $conn, string $start_date, string $end_date, string $emp_id) {
     try {
         $gl_query = mysqli_query($conn, "SELECT IFNULL(NULLIF(group_leader_id, ''), emp_id) as gl_id FROM employees WHERE emp_id = '$emp_id'");
         $gl_row = mysqli_fetch_assoc($gl_query);

@@ -392,17 +392,22 @@ if (isset($_POST['reset_password'])) {
     </main>
 
     <script>
-        // Checkboxes logic
-        const selectAll = document.getElementById('selectAll');
-        const rowCheckboxes = document.querySelectorAll('.rowCheckbox');
-        const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
-
-        selectAll.addEventListener('change', (e) => {
-            rowCheckboxes.forEach(cb => {
-                cb.checked = e.target.checked;
-            });
+        function toggleAllCheckboxes(source) {
+            let checkboxes = document.querySelectorAll('.rowCheckbox');
+            checkboxes.forEach(cb => cb.checked = source.checked);
             updateBulkDeleteBtn();
-        });
+        }
+
+        function updateBulkDeleteBtn() {
+            let anyChecked = document.querySelectorAll('.rowCheckbox:checked').length > 0;
+            document.getElementById('bulkDeleteBtn').style.display = anyChecked ? 'inline-block' : 'none';
+        }
+
+        function submitBulkDelete() {
+            if(confirm("Are you sure you want to delete all selected employees? This cannot be undone.")) {
+                document.getElementById('bulkDeleteForm').submit();
+            }
+        }
     </script>
 
     <?php

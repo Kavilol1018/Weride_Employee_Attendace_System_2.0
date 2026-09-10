@@ -258,6 +258,14 @@ $emp_dropdown_res = mysqli_query($conn, $emp_dropdown_sql);
         body.dark-mode { background-color: #0f172a; color: #f8fafc; }
         body.dark-mode .main-content, body.dark-mode .topbar { background-color: #0f172a; }
         body.dark-mode .page-title, body.dark-mode .section-header { color: #f8fafc; }
+        body.dark-mode .dropdown-menu { background-color: #1e293b; border-color: #334155; }
+        body.dark-mode .dropdown-item { color: #f8fafc; }
+        body.dark-mode .dropdown-item:hover { background-color: #334155; }
+        body.dark-mode .modal, body.dark-mode .modal-box { background-color: #1e293b !important; border-color: #334155 !important; }
+        body.dark-mode .modal h2, body.dark-mode .modal-box h2 { color: #60a5fa !important; }
+        body.dark-mode .modal label, body.dark-mode .modal-box label { color: #cbd5e1 !important; }
+        body.dark-mode .modal input, body.dark-mode .modal select, body.dark-mode .modal-box input, body.dark-mode .modal-box select { background-color: #0f172a !important; color: #f8fafc !important; border-color: #475569 !important; }
+        body.dark-mode .modal .bg-amber-100, body.dark-mode .modal-box .bg-amber-100 { background-color: #451a03 !important; color: #fcd34d !important; }
         body.dark-mode td { background-color: #1e293b; border-color: #334155; }
         body.dark-mode td:first-child { border-left-color: #334155; }
         body.dark-mode td:last-child { border-right-color: #334155; }
@@ -268,6 +276,8 @@ $emp_dropdown_res = mysqli_query($conn, $emp_dropdown_sql);
     <link rel="stylesheet" href="assets/css/dark_mode.css?v=<?php echo time(); ?>">
     <script src="assets/js/theme_toggle.js"></script>
     <link rel="stylesheet" href="assets/css/global_fixes.css?v=<?php echo time(); ?>">
+    <!-- Flatpickr CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 </head>
 <body class="<?php echo isset($_COOKIE['theme']) && $_COOKIE['theme'] === 'dark' ? 'dark-mode' : ''; ?>">
 
@@ -352,8 +362,7 @@ $emp_dropdown_res = mysqli_query($conn, $emp_dropdown_sql);
                 </table>
             </div>
         </div>
-    </main>
-
+    
     <!-- Force Action Modal -->
     <div id="forceActionModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.5); backdrop-filter:blur(4px); align-items:center; justify-content:center; z-index:1000;">
         <div class="modal-box bg-white" style=" padding:30px; border-radius:20px; width:700px; max-width:90%; position:relative; box-shadow:0 10px 25px rgba(0,0,0,0.1); max-height:90vh; overflow-y:auto; border: 2px dashed #3b82f6;">
@@ -409,11 +418,11 @@ $emp_dropdown_res = mysqli_query($conn, $emp_dropdown_sql);
                     <!-- Row 3: Start Date & End Date -->
                     <div>
                         <label class="text-slate-900" style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px;"><span class="text-red-500">*</span> Date of Leave (Start)</label>
-                        <input type="date" name="start_date" id="modal_start_date" required style="width: 100%; padding: 10px 15px; border: 1px solid #fbbf24; border-radius: 8px; font-size: 14px; outline: none; background: white; color: #334155;">
+                        <input type="text" name="start_date" id="modal_start_date" placeholder="Select Date" required style="width: 100%; padding: 10px 15px; border: 1px solid #fbbf24; border-radius: 8px; font-size: 14px; outline: none; background: white; color: #334155;">
                     </div>
                     <div id="modal_end_date_group">
                         <label class="text-slate-900" style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px;"><span class="text-red-500">*</span> Date of Leave (End)</label>
-                        <input type="date" name="end_date" id="modal_end_date" required style="width: 100%; padding: 10px 15px; border: 1px solid #fbbf24; border-radius: 8px; font-size: 14px; outline: none; background: white; color: #334155;">
+                        <input type="text" name="end_date" id="modal_end_date" placeholder="Select Date" required style="width: 100%; padding: 10px 15px; border: 1px solid #fbbf24; border-radius: 8px; font-size: 14px; outline: none; background: white; color: #334155;">
                     </div>
 
                     <!-- Row 3.5: Start Time & End Time -->
@@ -448,6 +457,8 @@ $emp_dropdown_res = mysqli_query($conn, $emp_dropdown_sql);
         </div>
     </div>
     
+    <!-- Flatpickr JS -->
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
     function toggleLeaveModalFields(source = null) {
         const type = document.getElementById('modal_leave_type').value;
@@ -482,7 +493,11 @@ $emp_dropdown_res = mysqli_query($conn, $emp_dropdown_sql);
             if (type === 'Annual Leave' || type === 'Sick Leave' || type === 'Unpaid Leave') {
                 startTimeInput.value = '09:00';
                 endTimeInput.value = '18:00';
-                durationInput.value = '1';
+                if (startDateInput && startDateInput.value) {
+                    if (typeof calculateDuration === 'function') calculateDuration();
+                } else {
+                    durationInput.value = '1';
+                }
             } else {
                 startTimeInput.value = '';
                 endTimeInput.value = '';
@@ -490,6 +505,85 @@ $emp_dropdown_res = mysqli_query($conn, $emp_dropdown_sql);
             }
         }
     }
+        
+        // Flatpickr Initialization
+        const publicHolidays = [
+            '2026-01-01', // New Year's Day
+            '2026-01-28', // Thaipusam
+            '2026-02-12', // Chinese New Year (Day 1)
+            '2026-02-13', // Chinese New Year (Day 2)
+            '2026-03-20', // Hari Raya Aidilfitri (Day 1)
+            '2026-03-21', // Hari Raya Aidilfitri (Day 2)
+            '2026-05-01', // Labour Day
+            '2026-05-24', // Wesak Day
+            '2026-05-27', // Hari Raya Haji
+            '2026-06-06', // Agong's Birthday
+            '2026-07-07', // Awal Muharram
+            '2026-08-31', // Merdeka Day
+            '2026-09-16', // Malaysia Day
+            '2026-11-08', // Deepavali
+            '2026-12-25'  // Christmas
+        ];
+
+        function calculateDuration() {
+            const start = document.getElementById('modal_start_date').value;
+            let end = document.getElementById('modal_end_date').value;
+            const durationInput = document.getElementById('modal_duration');
+            
+            if (!start) return;
+            if (document.getElementById('modal_end_date_group').style.display === 'none') {
+                end = start;
+            } else if (!end) {
+                return;
+            }
+
+            let startDate = new Date(start);
+            let endDate = new Date(end);
+            
+            if (endDate < startDate) {
+                durationInput.value = '';
+                return;
+            }
+
+            let days = 0;
+            let current = new Date(startDate);
+            while (current <= endDate) {
+                let dayOfWeek = current.getDay();
+                let dateString = current.getFullYear() + '-' + 
+                                 String(current.getMonth() + 1).padStart(2, '0') + '-' + 
+                                 String(current.getDate()).padStart(2, '0');
+                
+                if (dayOfWeek !== 0 && dayOfWeek !== 6 && !publicHolidays.includes(dateString)) {
+                    days++;
+                }
+                current.setDate(current.getDate() + 1);
+            }
+            
+            durationInput.value = days;
+        }
+
+        const fpConfig = {
+            dateFormat: "Y-m-d",
+            disable: [
+                function(date) {
+                    // Disable Saturday (6) and Sunday (0)
+                    if (date.getDay() === 0 || date.getDay() === 6) {
+                        return true;
+                    }
+                    // Disable Public Holidays
+                    const dateString = date.getFullYear() + '-' + 
+                                     String(date.getMonth() + 1).padStart(2, '0') + '-' + 
+                                     String(date.getDate()).padStart(2, '0');
+                    return publicHolidays.includes(dateString);
+                }
+            ],
+            onChange: function(selectedDates, dateStr, instance) {
+                calculateDuration();
+            }
+        };
+
+        flatpickr("#modal_start_date", fpConfig);
+        flatpickr("#modal_end_date", fpConfig);
     </script>
 
 </body>

@@ -372,21 +372,21 @@ $color_map = [
                                     $status = $att_status; // UPL, AL, etc. from override
                                 }
                             } 
-                            // 3. Check leaves
-                            elseif (isset($leaves[$emp_id][$d])) {
-                                $status = $leaves[$emp_id][$d];
-                                if ($status == 'AL') $annual_leave_count++;
-                                elseif ($status == 'SL') $sick_leave_count++;
-                            } 
-                            // 4. Check Public Holidays from DB
+                            // 3. Check Public Holidays from DB
                             elseif (isset($public_holidays_db[$d])) {
                                 $status = 'PH';
                                 $public_holiday_count++;
                             }
-                            // 5. Check weekends
+                            // 4. Check weekends
                             elseif ($is_weekend) {
                                 $status = 'WO';
                                 $weekend_count++;
+                            } 
+                            // 5. Check leaves
+                            elseif (isset($leaves[$emp_id][$d])) {
+                                $status = $leaves[$emp_id][$d];
+                                if ($status == 'AL') $annual_leave_count++;
+                                elseif ($status == 'SL') $sick_leave_count++;
                             } 
                             // 6. Default to Absent if it's a weekday in the past without records
                             else {

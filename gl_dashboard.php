@@ -473,11 +473,18 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
         body.dark-mode .modal-close { color: #94a3b8; }
         body.dark-mode .modal-input { background: #0f172a; border-color: #475569; color: #f8fafc; }
         body.dark-mode .modal-input:focus { border-color: #fbbf24; }
-        body.dark-mode .dropdown-content { background-color: #1e293b; border-color: #334155; }
+        body.dark-mode .dropdown-menu { background-color: #1e293b; border-color: #334155; }
         body.dark-mode .dropdown-item { color: #f8fafc; }
         body.dark-mode .dropdown-item:hover { background-color: #334155; }
+        body.dark-mode .modal, body.dark-mode .modal-box { background-color: #1e293b !important; border-color: #334155 !important; }
+        body.dark-mode .modal h2, body.dark-mode .modal-box h2 { color: #60a5fa !important; }
+        body.dark-mode .modal label, body.dark-mode .modal-box label { color: #cbd5e1 !important; }
+        body.dark-mode .modal input, body.dark-mode .modal select, body.dark-mode .modal-box input, body.dark-mode .modal-box select { background-color: #0f172a !important; color: #f8fafc !important; border-color: #475569 !important; }
+        body.dark-mode .modal .bg-amber-100, body.dark-mode .modal-box .bg-amber-100 { background-color: #451a03 !important; color: #fcd34d !important; }
     </style>
     <link rel="stylesheet" href="assets/css/global_fixes.css?v=<?php echo time(); ?>">
+    <!-- Flatpickr CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     </head>
 <body class="<?php echo isset($_COOKIE['theme']) && $_COOKIE['theme'] === 'dark' ? 'dark-mode' : ''; ?>">
 
@@ -734,8 +741,8 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
                         <select name="leave_type" id="modal_leave_type" required onchange="toggleLeaveModalFields('type')" style="width: 100%; padding: 10px 15px; border: 1px solid #fbbf24; border-radius: 8px; font-size: 14px; outline: none; background: white; color: #334155; appearance: none; background-image: url('data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2352525b\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><polyline points=\'6 9 12 15 18 9\'></polyline></svg>'); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;">
                             <option value="" disabled selected>Please select</option>
                             <?php if (strtolower($employment_type) !== 'intern'): ?>
-                            <option value="Annual Leave">Annual Leave</option>
-                            <option value="Sick Leave">Sick Leave</option>
+                            <option value="Annual Leave" <?php echo ($al_bal <= 0) ? 'disabled' : ''; ?>>Annual Leave <?php echo ($al_bal <= 0) ? '(Quota Depleted)' : ''; ?></option>
+                            <option value="Sick Leave" <?php echo ($sl_bal <= 0) ? 'disabled' : ''; ?>>Sick Leave <?php echo ($sl_bal <= 0) ? '(Quota Depleted)' : ''; ?></option>
                             <option value="Emergency Leave">Emergency Leave</option>
                             <?php endif; ?>
                             <option value="Unpaid Leave">Unpaid Leave</option>
@@ -749,11 +756,11 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
                     <!-- Row 3: Start Date & End Date -->
                     <div>
                         <label class="text-slate-900" style="display: block; font-size: 13px; font-weight: 700;  margin-bottom: 6px;"><span class="text-red-500" >*</span> Date of Leave (Start)</label>
-                        <input type="date" name="start_date" id="modal_start_date" required style="width: 100%; padding: 10px 15px; border: 1px solid #fbbf24; border-radius: 8px; font-size: 14px; outline: none; background: white; color: #334155;">
+                        <input type="text" name="start_date" id="modal_start_date" placeholder="Select Date" required style="width: 100%; padding: 10px 15px; border: 1px solid #fbbf24; border-radius: 8px; font-size: 14px; outline: none; background: white; color: #334155;">
                     </div>
                     <div id="modal_end_date_group">
                         <label class="text-slate-900" style="display: block; font-size: 13px; font-weight: 700;  margin-bottom: 6px;"><span class="text-red-500" >*</span> Date of Leave (End)</label>
-                        <input type="date" name="end_date" id="modal_end_date" required style="width: 100%; padding: 10px 15px; border: 1px solid #fbbf24; border-radius: 8px; font-size: 14px; outline: none; background: white; color: #334155;">
+                        <input type="text" name="end_date" id="modal_end_date" placeholder="Select Date" required style="width: 100%; padding: 10px 15px; border: 1px solid #fbbf24; border-radius: 8px; font-size: 14px; outline: none; background: white; color: #334155;">
                     </div>
 
                     <!-- Row 3.5: Start Time & End Time -->
@@ -788,6 +795,8 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
         </div>
     </div>
 
+    <!-- Flatpickr JS -->
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
         // Inject PHP variables into JS for dynamic time calculations
         const shiftStart = '<?php $parts = explode("-", $shift_hour); echo trim($parts[0] ?? "09:00"); ?>';
@@ -838,7 +847,11 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
                 if (type === 'Annual Leave' || type === 'Sick Leave' || type === 'Unpaid Leave') {
                     startTimeInput.value = shiftStart;
                     endTimeInput.value = shiftEnd;
-                    durationInput.value = '1';
+                    if (startDateInput && startDateInput.value) {
+                        if (typeof calculateDuration === 'function') calculateDuration();
+                    } else {
+                        durationInput.value = '1';
+                    }
                 } else {
                     startTimeInput.value = '';
                     endTimeInput.value = '';
@@ -881,11 +894,94 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
             document.getElementById('friday-reminder').style.display = 'none';
             sessionStorage.setItem('friday_reminded', '1');
         }
-        if (!sessionStorage.getItem('friday_reminded')) {
+    </script>
+    <?php endif; ?>
+
+    <script>
+        // Flatpickr Initialization
+        const publicHolidays = [
+            '2026-01-01', // New Year's Day
+            '2026-01-28', // Thaipusam
+            '2026-02-12', // Chinese New Year (Day 1)
+            '2026-02-13', // Chinese New Year (Day 2)
+            '2026-03-20', // Hari Raya Aidilfitri (Day 1)
+            '2026-03-21', // Hari Raya Aidilfitri (Day 2)
+            '2026-05-01', // Labour Day
+            '2026-05-24', // Wesak Day
+            '2026-05-27', // Hari Raya Haji
+            '2026-06-06', // Agong's Birthday
+            '2026-07-07', // Awal Muharram
+            '2026-08-31', // Merdeka Day
+            '2026-09-16', // Malaysia Day
+            '2026-11-08', // Deepavali
+            '2026-12-25'  // Christmas
+        ];
+
+        function calculateDuration() {
+            const start = document.getElementById('modal_start_date').value;
+            let end = document.getElementById('modal_end_date').value;
+            const durationInput = document.getElementById('modal_duration');
+            
+            if (!start) return;
+            if (document.getElementById('modal_end_date_group').style.visibility === 'hidden' || document.getElementById('modal_end_date_group').style.display === 'none') {
+                end = start;
+            } else if (!end) {
+                return;
+            }
+
+            let startDate = new Date(start);
+            let endDate = new Date(end);
+            
+            if (endDate < startDate) {
+                durationInput.value = '';
+                return;
+            }
+
+            let days = 0;
+            let current = new Date(startDate);
+            while (current <= endDate) {
+                let dayOfWeek = current.getDay();
+                let dateString = current.getFullYear() + '-' + 
+                                 String(current.getMonth() + 1).padStart(2, '0') + '-' + 
+                                 String(current.getDate()).padStart(2, '0');
+                
+                if (dayOfWeek !== 0 && dayOfWeek !== 6 && !publicHolidays.includes(dateString)) {
+                    days++;
+                }
+                current.setDate(current.getDate() + 1);
+            }
+            
+            durationInput.value = days;
+        }
+
+        const fpConfig = {
+            dateFormat: "Y-m-d",
+            disable: [
+                function(date) {
+                    // Disable Saturday (6) and Sunday (0)
+                    if (date.getDay() === 0 || date.getDay() === 6) {
+                        return true;
+                    }
+                    // Disable Public Holidays
+                    const dateString = date.getFullYear() + '-' + 
+                                     String(date.getMonth() + 1).padStart(2, '0') + '-' + 
+                                     String(date.getDate()).padStart(2, '0');
+                    return publicHolidays.includes(dateString);
+                }
+            ],
+            onChange: function(selectedDates, dateStr, instance) {
+                calculateDuration();
+            }
+        };
+
+        flatpickr("#modal_start_date", fpConfig);
+        flatpickr("#modal_end_date", fpConfig);
+
+
+        if (!sessionStorage.getItem('friday_reminded') && document.getElementById('friday-reminder')) {
             document.getElementById('friday-reminder').style.display = 'flex';
         }
     </script>
-    <?php endif; ?>
 </body>
 </html>
 
