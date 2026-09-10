@@ -1,9 +1,9 @@
 <?php
 mysqli_report(MYSQLI_REPORT_OFF);
 $host = "localhost";
-$username = "u251904595_weride";
-$password = "Weride_2026";
-$database = "u251904595_lunchbreak";
+$username = "u251904595_phase2";
+$password = "Weridekl1234";
+$database = "u251904595_phase2";
 
 $conn = @mysqli_connect($host, $username, $password, $database);
 
