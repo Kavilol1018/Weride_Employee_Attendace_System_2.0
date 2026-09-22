@@ -233,7 +233,8 @@ $holidays = mysqli_query($conn, "SELECT * FROM public_holidays ORDER BY holiday_
                         </div>
                         <button type="submit" name="upload_file" class="btn" style="width: 100%; background: #475569;">Upload & Import File</button>
                         <div class="text-slate-500" style="margin-top: 10px; font-size: 12px;  text-align: center;">
-                            CSV Format: <code>YYYY-MM-DD, Holiday Name</code>
+                            CSV Format: <code>YYYY-MM-DD, Holiday Name</code><br>
+                            <a href="template.csv" download class="text-blue-500 hover:underline" style="font-size: 13px;">Download CSV Template</a>
                         </div>
                     </form>
                 </div>

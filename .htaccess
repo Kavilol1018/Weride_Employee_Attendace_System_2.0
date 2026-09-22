@@ -1,4 +1,6 @@
+Options -MultiViews
 RewriteEngine On
+RewriteBase /
 
 # Unless directory, remove trailing slash
 RewriteCond %{REQUEST_FILENAME} !-d

@@ -4,11 +4,21 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(res => res.json())
             .then(data => {
                 if (data.violations && data.violations.length > 0) {
+                    if ("Notification" in window) Notification.requestPermission();
+                    
                     data.violations.forEach(v => {
                         if (v.type === 'missed') {
-                            window.showToast(`🚨 Violation: ${v.name} completely missed their lunch window (${v.window})!`, true);
+                            const msg = `🚨 Violation: ${v.name} completely missed their lunch window (${v.window})!`;
+                            window.showToast(msg, true);
+                            if ("Notification" in window && Notification.permission === "granted") {
+                                new Notification("WeRide Violation Alert", { body: msg });
+                            }
                         } else {
-                            window.showToast(`🚨 Violation: ${v.name} took a ${v.duration} min break (Overtime)!`);
+                            const msg = `🚨 Violation: ${v.name} took a ${v.duration} min break (Overtime)!`;
+                            window.showToast(msg);
+                            if ("Notification" in window && Notification.permission === "granted") {
+                                new Notification("WeRide Violation Alert", { body: msg });
+                            }
                         }
                     });
                 }

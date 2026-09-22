@@ -10,125 +10,194 @@ $role = $_SESSION['role'];
 $imported_accounts = [];
 $error_message = "";
 
+// Helper to pre-fetch Group Leaders for dynamic assignment
+$gl_map = [];
+$gl_query = mysqli_query($conn, "SELECT id, emp_id, name, role FROM employees WHERE role IN ('gl', 'tl', 'hr', 'admin')");
+while ($row = mysqli_fetch_assoc($gl_query)) {
+    // Quick and dirty mapping for the known teams based on names
+    if (stripos($row['name'], 'mageswary') !== false) $gl_map['Team Mages'] = $row['emp_id'];
+    if (stripos($row['name'], 'salma') !== false) $gl_map['Team Salma'] = $row['emp_id'];
+    if (stripos($row['name'], 'thananiy') !== false) $gl_map['Team Thana'] = $row['emp_id'];
+    if (stripos($row['name'], 'shivanesha') !== false) $gl_map['Team Shiva'] = $row['emp_id'];
+    
+    // Also map their direct names and emp_ids in case the CSV uses those instead
+    $gl_map[strtolower(trim($row['name']))] = $row['emp_id'];
+    $gl_map[strtolower(trim($row['emp_id']))] = $row['emp_id'];
+}
+
+function process_employee_row(mysqli $conn, array $data_row, array &$imported_accounts, array $gl_map) {
+    if (count($data_row) < 12) {
+        // We only process if it has roughly the 12 columns, or at least Name and Welabel ID
+        if (count($data_row) < 5) return false; 
+    }
+    
+    $name = trim($data_row[0] ?? '');
+    $welabel_id = trim($data_row[1] ?? '');
+    $assigned_gl = trim($data_row[2] ?? '');
+    $onboarding_date_raw = trim($data_row[3] ?? '');
+    $employment_type = trim($data_row[4] ?? 'Full time');
+    if (stripos($employment_type, 'full') !== false) {
+        $employment_type = 'Full time';
+    } elseif (stripos($employment_type, 'intern') !== false) {
+        $employment_type = 'Intern';
+    }
+    
+    $al_balance = floatval($data_row[5] ?? 0);
+    $sl_balance = floatval($data_row[6] ?? 0);
+    $shift_time = trim($data_row[7] ?? '');
+    $lunch_time = trim($data_row[8] ?? ''); // Col 8
+    $status = trim($data_row[9] ?? 'Active'); // Col 9
+    $position = trim($data_row[11] ?? ''); // Col L
+    
+    if (empty($name)) return false;
+    
+    $name_safe = mysqli_real_escape_string($conn, $name);
+    $welabel_safe = mysqli_real_escape_string($conn, $welabel_id);
+    $dept_safe = mysqli_real_escape_string($conn, $assigned_gl);
+    $type_safe = mysqli_real_escape_string($conn, $employment_type);
+    $shift_safe = mysqli_real_escape_string($conn, $shift_time);
+    $lunch_safe = mysqli_real_escape_string($conn, $lunch_time);
+    $status_safe = mysqli_real_escape_string($conn, $status);
+    
+    // Group Leader ID Resolution
+    $group_leader_id = '';
+    $search_gl = strtolower($assigned_gl);
+    if (isset($gl_map[$assigned_gl])) {
+        $group_leader_id = $gl_map[$assigned_gl]; // Match "Team Mages" etc
+    } elseif (isset($gl_map[$search_gl])) {
+        $group_leader_id = $gl_map[$search_gl]; // Match direct name or emp_id
+    }
+
+    // Default new leaves based on employment type
+    $unpaid_balance = 0.0;
+    $hosp_balance = (stripos($employment_type, 'Intern') !== false) ? 0.0 : 60.0;
+    $gl_safe = mysqli_real_escape_string($conn, $group_leader_id);
+
+    // Determine Role from Position
+    $role_val = 'employee';
+    $pos_lower = strtolower($position);
+    if (strpos($pos_lower, 'qa') !== false) $role_val = 'qa';
+    if (strpos($pos_lower, 'group lead') !== false) $role_val = 'gl';
+    if (strpos($pos_lower, 'team lead') !== false) $role_val = 'tl';
+    if (strpos($pos_lower, 'hr') !== false) $role_val = 'hr';
+
+    // Parse Onboarding Date
+    $onboarding_date = null;
+    $yy = date('y');
+    $mm = date('m');
+    if (!empty($onboarding_date_raw)) {
+        if (preg_match('/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/', $onboarding_date_raw, $matches)) {
+            $mm = str_pad($matches[1], 2, '0', STR_PAD_LEFT);
+            $yy = substr($matches[3], -2);
+            $onboarding_date = "{$matches[3]}-{$mm}-" . str_pad($matches[2], 2, '0', STR_PAD_LEFT);
+        } elseif (is_numeric($onboarding_date_raw)) {
+            $ts = $onboarding_date_raw > 10000000000 ? $onboarding_date_raw / 1000 : ($onboarding_date_raw - 25569) * 86400;
+            $yy = date('y', $ts);
+            $mm = date('m', $ts);
+            $onboarding_date = date('Y-m-d', $ts);
+        } else {
+            $ts = strtotime($onboarding_date_raw);
+            if ($ts) {
+                $yy = date('y', $ts);
+                $mm = date('m', $ts);
+                $onboarding_date = date('Y-m-d', $ts);
+            }
+        }
+    }
+    
+    // Parse Shift Time (e.g. 8:30-17:30)
+    $shift_start = null;
+    $shift_end = null;
+    if (!empty($shift_time) && strpos($shift_time, '-') !== false) {
+        $parts = explode('-', $shift_time);
+        if (count($parts) == 2) {
+            $shift_start = date("H:i:s", strtotime(trim($parts[0])));
+            $shift_end = date("H:i:s", strtotime(trim($parts[1])));
+        }
+    }
+    
+    // Check if employee already exists by name or welabel_id
+    $check_query = "SELECT id, emp_id FROM employees WHERE name = '$name_safe'";
+    if (!empty($welabel_id)) {
+        $check_query .= " OR welabel_id = '$welabel_safe'";
+    }
+    $check_dup = mysqli_query($conn, $check_query);
+    if (mysqli_num_rows($check_dup) > 0) {
+        $row = mysqli_fetch_assoc($check_dup);
+        $id = $row['id'];
+        
+        $update_q = "UPDATE employees SET 
+            welabel_id='$welabel_safe',
+            department='$dept_safe',
+            employment_type='$type_safe',
+            annual_leave_balance='$al_balance',
+            sick_leave_balance='$sl_balance',
+            shift_hour='$shift_safe',
+            leave_status='$status_safe',
+            role='$role_val',
+            group_leader_id='$group_leader_id',
+            lunch_window='$lunch_safe'";
+            
+        if ($onboarding_date) $update_q .= ", onboarding_date='$onboarding_date'";
+        if ($shift_start) $update_q .= ", shift_start='$shift_start'";
+        if ($shift_end) $update_q .= ", shift_end='$shift_end'";
+            
+        $update_q .= " WHERE id=$id";
+        mysqli_query($conn, $update_q);
+        
+        $imported_accounts[] = [
+            'name' => $name_safe,
+            'emp_id' => $row['emp_id'],
+            'welabel_id' => $welabel_id,
+            'password' => 'Updated Existing'
+        ];
+        return true;
+    }
+
+    // Generate new emp_id
+    $type_prefix = (stripos($employment_type, 'Intern') !== false) ? 'IN' : 'FT';
+    $prefix = "{$type_prefix}-{$yy}{$mm}-";
+    
+    $query = mysqli_query($conn, "SELECT COUNT(*) as count FROM employees WHERE emp_id LIKE '$prefix%'");
+    $db_row = mysqli_fetch_assoc($query);
+    $new_num = $db_row['count'] + 1;
+    
+    $emp_id = $prefix . str_pad($new_num, 3, '0', STR_PAD_LEFT);
+    while (mysqli_num_rows(mysqli_query($conn, "SELECT id FROM employees WHERE emp_id='$emp_id'")) > 0) {
+        $new_num++;
+        $emp_id = $prefix . str_pad($new_num, 3, '0', STR_PAD_LEFT);
+    }
+    
+    // Fixed password
+    $generated_pwd = 'welabel2026';
+    $hashed_password = password_hash($generated_pwd, PASSWORD_DEFAULT);
+    
+    $sql = "INSERT INTO employees (emp_id, welabel_id, name, password, department, onboarding_date, employment_type, annual_leave_balance, sick_leave_balance, unpaid_leave_balance, hospitalization_leave_balance, shift_hour, shift_start, shift_end, lunch_window, leave_status, role, group_leader_id) 
+            VALUES ('$emp_id', '$welabel_safe', '$name_safe', '$hashed_password', '$dept_safe', " . ($onboarding_date ? "'$onboarding_date'" : "NULL") . ", '$type_safe', '$al_balance', '$sl_balance', '$unpaid_balance', '$hosp_balance', '$shift_safe', " . ($shift_start ? "'$shift_start'" : "NULL") . ", " . ($shift_end ? "'$shift_end'" : "NULL") . ", '$lunch_safe', '$status_safe', '$role_val', '$group_leader_id')";
+    
+    if (mysqli_query($conn, $sql)) {
+        $imported_accounts[] = [
+            'name' => $name_safe,
+            'emp_id' => $emp_id,
+            'welabel_id' => $welabel_id,
+            'password' => $generated_pwd
+        ];
+        return true;
+    }
+    return false;
+}
+
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES["import_csv"])) {
     if ($_FILES["import_csv"]["size"] > 0) {
         if (($handle = fopen($_FILES["import_csv"]["tmp_name"], "r")) !== FALSE) {
-            $row = 0;
+            $row_count = 0;
             while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
-                $row++;
-                // Skip first row (header)
-                if ($row <= 1) continue; 
-
-                $date_str = isset($data[0]) ? trim($data[0]) : '';
-                $welabel_id = isset($data[1]) ? mysqli_real_escape_string($conn, trim($data[1])) : '';
-                $raw_name = isset($data[2]) ? trim($data[2]) : '';
-                
-                // If Full Name is empty, try to extract it from the WeLabel ID
-                if (empty($raw_name) && !empty($welabel_id)) {
-                    $extracted = preg_replace('/^KL_/i', '', explode('@', $welabel_id)[0]);
-                    $raw_name = ucwords(str_replace('_', ' ', $extracted));
-                }
-                
-                if (empty($raw_name)) continue;
-                
-                // Detect and extract role from name suffix (e.g., " - QA", " - TL", " - HR", " - Admin")
-                $role_val = 'employee';
-                if (preg_match('/^(.*?)\s*-\s*(QA|TL|Team Lead|HR|HR - Human Resources|Admin)$/i', $raw_name, $matches)) {
-                    $raw_name = trim($matches[1]);
-                    $detected_role = strtolower($matches[2]);
-                    if ($detected_role === 'qa') $role_val = 'qa';
-                    elseif ($detected_role === 'tl' || $detected_role === 'team lead') $role_val = 'tl';
-                    elseif ($detected_role === 'hr' || $detected_role === 'hr - human resources') $role_val = 'hr';
-                    elseif ($detected_role === 'admin') $role_val = 'admin';
-                }
-
-                $name = mysqli_real_escape_string($conn, $raw_name);
-                
-                // Check if employee already exists by name or welabel_id
-                $check_query = "SELECT id FROM employees WHERE name = '$name'";
-                if (!empty($welabel_id)) {
-                    $check_query .= " OR welabel_id = '$welabel_id'";
-                }
-                $check_dup = mysqli_query($conn, $check_query);
-                if (mysqli_num_rows($check_dup) > 0) continue;
-
-                // Read Employment Type from Column D
-                $employment_type = (isset($data[3]) && !empty(trim($data[3]))) ? trim($data[3]) : 'Full time';
-                
-                // If the old CSV format had QA in the employment type column instead of name
-                if (stripos($employment_type, 'QA') !== false) {
-                    $role_val = 'qa';
-                    $employment_type = 'Full time';
-                }
-                
-                // Read System Role from Column E if available (overrides previous detections)
-                if (isset($data[4]) && !empty(trim($data[4]))) {
-                    $csv_role = strtolower(trim($data[4]));
-                    if ($csv_role === 'qa') $role_val = 'qa';
-                    elseif ($csv_role === 'tl' || $csv_role === 'team lead' || $csv_role === 'team-lead') $role_val = 'tl';
-                    elseif ($csv_role === 'hr' || $csv_role === 'hr - human resources') $role_val = 'hr';
-                    elseif ($csv_role === 'admin') $role_val = 'admin';
-                    elseif ($csv_role === 'annotator' || $csv_role === 'employee') $role_val = 'employee';
-                }
-                
-                $employment_type = mysqli_real_escape_string($conn, $employment_type);
-
-                // Robust Date Parsing
-                $timestamp_valid = false;
-                $yy = date('y');
-                $mm = date('m');
-                if (!empty($date_str)) {
-                    if (preg_match('/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/', $date_str, $matches)) {
-                        $mm = str_pad($matches[1], 2, '0', STR_PAD_LEFT);
-                        $yy = substr($matches[3], -2);
-                        $timestamp_valid = true;
-                    } elseif (is_numeric($date_str)) {
-                        $ts = $date_str > 10000000000 ? $date_str / 1000 : ($date_str - 25569) * 86400;
-                        $yy = date('y', $ts);
-                        $mm = date('m', $ts);
-                        $timestamp_valid = true;
-                    } else {
-                        $ts = strtotime($date_str);
-                        if ($ts) {
-                            $yy = date('y', $ts);
-                            $mm = date('m', $ts);
-                            $timestamp_valid = true;
-                        }
-                    }
-                }
-                
-                $type_prefix = "FT";
-                if (stripos($employment_type, 'Intern') !== false) {
-                    $type_prefix = "IN";
-                }
-                $prefix = "{$type_prefix}-$yy$mm-";
-                
-                $query = mysqli_query($conn, "SELECT emp_id FROM employees WHERE emp_id LIKE '$prefix%' ORDER BY emp_id DESC LIMIT 1");
-                $new_num = 1;
-                if (mysqli_num_rows($query) > 0) {
-                    $db_row = mysqli_fetch_assoc($query);
-                    $new_num = ((int) substr($db_row['emp_id'], -3)) + 1;
-                }
-                $emp_id = $prefix . str_pad($new_num, 3, '0', STR_PAD_LEFT);
-                
-                // Fixed password
-                $generated_pwd = 'password123';
-                $hashed_password = password_hash($generated_pwd, PASSWORD_DEFAULT);
-                
-                $sql = "INSERT INTO employees (emp_id, welabel_id, name, password, employment_type, role, lunch_window) 
-                        VALUES ('$emp_id', '$welabel_id', '$name', '$hashed_password', '$employment_type', '$role_val', '12:00-13:00')";
-                
-                if (mysqli_query($conn, $sql)) {
-                    $imported_accounts[] = [
-                        'name' => $name,
-                        'emp_id' => $emp_id,
-                        'welabel_id' => $welabel_id,
-                        'password' => $generated_pwd
-                    ];
-                }
+                $row_count++;
+                if ($row_count <= 1) continue; // Skip header
+                process_employee_row($conn, $data, $imported_accounts, $gl_map);
             }
+            fclose($handle);
         }
-        fclose($handle);
     } else {
         $error_message = "Invalid or empty CSV file.";
     }
@@ -138,7 +207,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES["import_csv"])) {
     $app_secret = getenv('LARK_APP_SECRET') ?: 'YOUR_LARK_APP_SECRET';
     $spreadsheet_token = 'PQEMs7oErhqLrntaeA4jR8Tfpnf';
 
-    // 1. Get Token
     $ch = curl_init('https://open.larksuite.com/open-apis/auth/v3/tenant_access_token/internal');
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_POST, true);
@@ -149,16 +217,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES["import_csv"])) {
     if (isset($token_data['tenant_access_token'])) {
         $token = $token_data['tenant_access_token'];
 
-        // Determine if it's a wiki link or a spreadsheet link
         $lark_url = $_POST['lark_url'] ?? '';
         $spreadsheet_token = '';
         
         if (strpos($lark_url, '/wiki/') !== false) {
-            // Extract wiki token
             $parts = explode('/wiki/', $lark_url);
             $wiki_token = explode('?', $parts[1])[0];
             
-            // Resolve Wiki Node
             $ch = curl_init("https://open.larksuite.com/open-apis/wiki/v2/spaces/get_node?token=$wiki_token");
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_HTTPHEADER, ["Authorization: Bearer $token", "Content-Type: application/json; charset=utf-8"]);
@@ -177,7 +242,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES["import_csv"])) {
         }
 
         if ($spreadsheet_token) {
-            // 2. Get Sheet ID
             $ch = curl_init("https://open.larksuite.com/open-apis/sheets/v2/spreadsheets/$spreadsheet_token/metainfo");
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_HTTPHEADER, ["Authorization: Bearer $token", "Content-Type: application/json; charset=utf-8"]);
@@ -186,125 +250,42 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES["import_csv"])) {
             if (isset($meta_data['data']['sheets'][0]['sheetId'])) {
                 $sheet_id = $meta_data['data']['sheets'][0]['sheetId'];
 
-                // 3. Get Values (Assuming Date in Col A, Welabel ID in B, Name in C, Type in D, Role in E)
-                $ch = curl_init("https://open.larksuite.com/open-apis/sheets/v2/spreadsheets/$spreadsheet_token/values/$sheet_id!A2:E100");
+                // Get Values A to L (12 columns)
+                $ch = curl_init("https://open.larksuite.com/open-apis/sheets/v2/spreadsheets/$spreadsheet_token/values/$sheet_id!A2:L200");
                 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
                 curl_setopt($ch, CURLOPT_HTTPHEADER, ["Authorization: Bearer $token", "Content-Type: application/json; charset=utf-8"]);
                 $values_response = json_decode(curl_exec($ch), true);
 
                 if (isset($values_response['data']['valueRange']['values'])) {
                     $rows = $values_response['data']['valueRange']['values'];
-                    $added_count = 0;
-                    foreach ($rows as $data) {
-                        $get_val = function($cell) {
+                    
+                    foreach ($rows as $data_row) {
+                        $normalized_row = [];
+                        foreach ($data_row as $cell) {
                             if (is_array($cell)) {
-                                if (isset($cell[0]['text'])) return $cell[0]['text'];
-                                if (isset($cell['text'])) return $cell['text'];
-                                // Some links in Lark might be returned in a different array format, try to extract first string
-                                foreach($cell as $item) {
-                                    if (is_string($item)) return $item;
-                                    if (is_array($item) && isset($item['text'])) return $item['text'];
+                                if (isset($cell[0]['text'])) $normalized_row[] = $cell[0]['text'];
+                                elseif (isset($cell['text'])) $normalized_row[] = $cell['text'];
+                                else {
+                                    $found = false;
+                                    foreach($cell as $item) {
+                                        if (is_string($item)) { $normalized_row[] = $item; $found = true; break; }
+                                        if (is_array($item) && isset($item['text'])) { $normalized_row[] = $item['text']; $found = true; break; }
+                                    }
+                                    if (!$found) $normalized_row[] = '';
                                 }
-                                return json_encode($cell);
-                            }
-                            return (string)$cell;
-                        };
-                        
-                        $date_str = isset($data[0]) && !is_null($data[0]) ? trim($get_val($data[0])) : '';
-                        $welabel_id = isset($data[1]) && !is_null($data[1]) ? mysqli_real_escape_string($conn, trim($get_val($data[1]))) : '';
-                        $raw_name = isset($data[2]) && !is_null($data[2]) ? trim($get_val($data[2])) : '';
-                        
-                        // If Full Name is empty, try to extract it from the WeLabel ID
-                        if (empty($raw_name) && !empty($welabel_id)) {
-                            $extracted = preg_replace('/^KL_/i', '', explode('@', $welabel_id)[0]);
-                            $raw_name = ucwords(str_replace('_', ' ', $extracted));
-                        }
-                        
-                        if (empty($raw_name)) continue;
-                        
-                        $name = mysqli_real_escape_string($conn, trim($raw_name));
-                        
-                        // Check if employee already exists by name or welabel_id
-                        $check_query = "SELECT id FROM employees WHERE name = '$name'";
-                        if (!empty($welabel_id)) {
-                            $check_query .= " OR welabel_id = '$welabel_id'";
-                        }
-                        $check_dup = mysqli_query($conn, $check_query);
-                        if (mysqli_num_rows($check_dup) > 0) continue;
-
-                        // Read Employment Type from Column D
-                        $employment_type = (isset($data[3]) && !is_null($data[3]) && !empty(trim($data[3]))) ? mysqli_real_escape_string($conn, trim($data[3])) : 'Full time';
-                        
-                        $role_val = 'employee';
-                        // System Role from Column E
-                        if (isset($data[4]) && !is_null($data[4]) && !empty(trim($data[4]))) {
-                            $csv_role = strtolower(trim($data[4]));
-                            if ($csv_role === 'qa') $role_val = 'qa';
-                            elseif ($csv_role === 'tl' || $csv_role === 'team lead' || $csv_role === 'team-lead') $role_val = 'tl';
-                            elseif ($csv_role === 'hr' || $csv_role === 'hr - human resources') $role_val = 'hr';
-                            elseif ($csv_role === 'admin') $role_val = 'admin';
-                        }
-
-                        if (stripos($employment_type, 'QA') !== false) {
-                            $role_val = 'qa';
-                            $employment_type = 'Full time';
-                        }
-
-                        // Robust Date Parsing
-                        $timestamp_valid = false;
-                        $yy = date('y');
-                        $mm = date('m');
-                        if (!empty($date_str)) {
-                            // Try to extract directly using Regex for formats like "6/8/2026" or "06-08-2026"
-                            if (preg_match('/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/', $date_str, $matches)) {
-                                // Assuming m/d/Y based on the spreadsheet
-                                $mm = str_pad($matches[1], 2, '0', STR_PAD_LEFT);
-                                $yy = substr($matches[3], -2);
-                                $timestamp_valid = true;
-                            } elseif (is_numeric($date_str)) {
-                                // Lark might return Unix ms or Excel serial
-                                $ts = $date_str > 10000000000 ? $date_str / 1000 : ($date_str - 25569) * 86400;
-                                $yy = date('y', $ts);
-                                $mm = date('m', $ts);
-                                $timestamp_valid = true;
                             } else {
-                                $ts = strtotime($date_str);
-                                if ($ts) {
-                                    $yy = date('y', $ts);
-                                    $mm = date('m', $ts);
-                                    $timestamp_valid = true;
-                                }
+                                $normalized_row[] = (string)$cell;
                             }
                         }
                         
-                        $type_prefix = "FT";
-                        if (stripos($employment_type, 'Intern') !== false) {
-                            $type_prefix = "IN";
-                        }
-                        $prefix = "{$type_prefix}-$yy$mm-";
+                        // Fill up to 12 columns if short
+                        $normalized_row = array_pad($normalized_row, 12, '');
                         
-                        $query = mysqli_query($conn, "SELECT emp_id FROM employees WHERE emp_id LIKE '$prefix%' ORDER BY emp_id DESC LIMIT 1");
-                        $new_num = 1;
-                        if (mysqli_num_rows($query) > 0) {
-                            $row = mysqli_fetch_assoc($query);
-                            $new_num = ((int) substr($row['emp_id'], -3)) + 1;
-                        }
-                        $emp_id = $prefix . str_pad($new_num, 3, '0', STR_PAD_LEFT);
-                        
-                        // Fixed password
-                        $generated_pwd = 'password123';
-                        $hashed_password = password_hash($generated_pwd, PASSWORD_DEFAULT);
-                        
-                        $sql = "INSERT INTO employees (emp_id, welabel_id, name, password, employment_type, role, lunch_window) 
-                                VALUES ('$emp_id', '$welabel_id', '$name', '$hashed_password', '$employment_type', '$role_val', '12:00-13:00')";
-                        
-                        if (mysqli_query($conn, $sql)) {
-                            $imported_accounts[] = ['name' => $name, 'emp_id' => $emp_id, 'welabel_id' => $welabel_id, 'password' => $generated_pwd];
-                            $added_count++;
-                        }
+                        process_employee_row($conn, $normalized_row, $imported_accounts, $gl_map);
                     }
-                    if ($added_count == 0) {
-                        $error_message = "No new names found to import. (Check if the sheet is empty or names already exist).";
+                    
+                    if (count($imported_accounts) == 0) {
+                        $error_message = "No names processed from Lark. Ensure format matches the 12-column layout.";
                     }
                 } else {
                     $error_message = "Failed to fetch values. Response: " . json_encode($values_response);
@@ -404,7 +385,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES["import_csv"])) {
                         <input type="text" name="lark_url" class="form-input" value="https://cjpxtnsrasp0.jp.larksuite.com/wiki/AtdpwjybCid6Y9kE4XwjTncop1b" required style="background: #f8fafc; color: #334155;">
                         
                         <div class="bg-blue-50" style=" padding: 12px; border-radius: 8px; font-size: 13px; color: #1e40af; margin-bottom: 20px; border: 1px solid #bfdbfe;">
-                            ℹ️ The system will use your configured credentials to pull the latest rows directly via the Lark Open API.
+                            ℹ️ The system will use your configured credentials to pull the latest 12-column rows directly via the Lark API.
                         </div>
                         
                         <button type="submit" class="btn-sync">Sync Now</button>
@@ -414,7 +395,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES["import_csv"])) {
                 <div class="upload-card">
                     <div class="upload-icon">📄</div>
                     <h3 style="margin-bottom: 10px; text-align: center;">Manual CSV Upload</h3>
-                      <p class="text-slate-500" style=" font-size: 14px; margin-bottom: 25px; text-align: center;">Export your list from Lark as a CSV file.<br>Format: Date (Col A), ID & Name (Col B), Type (Col C), Role (Col D)</p>
+                      <p class="text-slate-500" style=" font-size: 14px; margin-bottom: 25px; text-align: center;">Export your 12-column list from Lark as a CSV file.<br>Format: Emp Name (Col A), Welabel ID (Col B), Team (Col C), Date (Col D)... Position (Col L)</p>
                       <form action="" method="post" enctype="multipart/form-data">
                           <input type="file" name="import_csv" accept=".csv" required style="margin-bottom: 20px; display: block; margin: 0 auto 20px auto;">
                           <button type="submit" class="btn-upload">Import CSV File</button>
@@ -428,7 +409,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES["import_csv"])) {
             <?php if (!empty($imported_accounts)): ?>
             <div class="result-card">
                 <div class="bg-emerald-50 text-emerald-600" style="  padding: 16px; border-radius: 12px; font-weight: 700; margin-bottom: 20px;">
-                    ✅ <?php echo count($imported_accounts); ?> accounts successfully generated! Please distribute these credentials to the staff.
+                    ✅ <?php echo count($imported_accounts); ?> accounts successfully imported/updated! Please distribute these credentials to the staff.
                 </div>
                 <div class="table-responsive">
                 <table>
@@ -458,4 +439,3 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES["import_csv"])) {
     </main>
 </body>
 </html>
-

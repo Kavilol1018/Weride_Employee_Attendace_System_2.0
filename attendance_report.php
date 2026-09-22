@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 session_start();
 require 'db_connect.php';
 
@@ -97,6 +97,7 @@ $logs_res = mysqli_query($conn, $logs_sql);
         body.dark-mode th { background: #0f172a; color: #94a3b8; }
     </style>
     <link rel="stylesheet" href="assets/css/global_fixes.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="assets/css/dark_mode.css?v=<?php echo time(); ?>">
     </head>
 <body class="<?php echo isset($_COOKIE['theme']) && $_COOKIE['theme'] === 'dark' ? 'dark-mode' : ''; ?>">
 
@@ -177,6 +178,7 @@ $logs_res = mysqli_query($conn, $logs_sql);
             </table>
         </div>
     </div>
+    <script src="assets/js/theme_toggle.js"></script>
 </body>
 </html>
 

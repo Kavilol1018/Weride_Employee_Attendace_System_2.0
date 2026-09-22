@@ -231,7 +231,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (isset($_POST['submit_leave'])) {
         $leave_type = mysqli_real_escape_string($conn, $_POST['leave_type']);
         $start_date = mysqli_real_escape_string($conn, $_POST['start_date']);
-        $end_date = mysqli_real_escape_string($conn, $_POST['end_date'] ?? $_POST['start_date']);
+        $end_date = !empty($_POST['end_date']) ? mysqli_real_escape_string($conn, $_POST['end_date']) : $start_date;
         
         $start_time = (isset($_POST['start_time']) && $_POST['start_time'] !== '') ? mysqli_real_escape_string($conn, $_POST['start_time']) : NULL;
         $end_time = (isset($_POST['end_time']) && $_POST['end_time'] !== '') ? mysqli_real_escape_string($conn, $_POST['end_time']) : NULL;
@@ -278,7 +278,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             if (in_array($ext, $allowed_ext)) {
                 $upload_dir = 'uploads/medical_certificates/';
                 if (!is_dir($upload_dir)) { mkdir($upload_dir, 0777, true); }
-                $new_filename = $current_employee_id . '_' . time() . '.' . $ext;
+                $safe_name = preg_replace('/[^A-Za-z0-9]/', '', $employee_name);
+                $new_filename = $safe_name . '_' . $start_date . '_' . $end_date . '.' . $ext;
                 $dest = $upload_dir . $new_filename;
                 
                 if (move_uploaded_file($_FILES['medical_certificate']['tmp_name'], $dest)) {
@@ -774,7 +775,8 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
                             <?php if (strtolower($employment_type) !== 'intern'): ?>
                             <option value="Annual Leave" <?php echo ($al_bal <= 0) ? 'disabled' : ''; ?>>Annual Leave <?php echo ($al_bal <= 0) ? '(Quota Depleted)' : ''; ?></option>
                             <option value="Sick Leave" <?php echo ($sl_bal <= 0) ? 'disabled' : ''; ?>>Sick Leave <?php echo ($sl_bal <= 0) ? '(Quota Depleted)' : ''; ?></option>
-                            <option value="Emergency Leave">Emergency Leave</option>
+                            <option value="Emergency Leave" <?php echo ($al_bal <= 0) ? 'disabled' : ''; ?>>Emergency Leave <?php echo ($al_bal <= 0) ? '(Quota Depleted)' : ''; ?></option>
+                            <option value="Hospitalization Leave">Hospitalization Leave</option>
                             <?php endif; ?>
                             <option value="Unpaid Leave">Unpaid Leave</option>
                         </select>
@@ -814,9 +816,9 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
                     <div id="modal_mc_upload_group" style="grid-column: 1 / -1;">
                         <label class="text-slate-500" style="display: block; font-size: 13px; font-weight: 700;  margin-bottom: 4px;">Supporting Document</label>
                         <p style="font-size: 11px; color: #94a3b8; margin-bottom: 8px;">Employees applying for sick leave are required to submit a valid Medical Certificate (MC) issued and signed by a registered Malaysia medical practitioner.</p>
-                        <div class="bg-white" style="border: 1px dashed #fbbf24; border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; position: relative;">
+                        <div class="bg-white" style="border: 1px dashed #fbbf24; border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; position: relative;" ondragover="event.preventDefault();" ondrop="event.preventDefault(); this.querySelector('input').files = event.dataTransfer.files; this.querySelector('input').dispatchEvent(new Event('change'));">
                             <span class="text-amber-600" style=" font-size: 13px; font-weight: 600;">Paste or drag files here (or click to upload)</span>
-                            <input type="file" name="medical_certificate" accept=".jpg,.jpeg,.png,.pdf" style="position: absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer;">
+                            <input type="file" name="medical_certificate" accept=".jpg,.jpeg,.png,.pdf" style="position: absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; z-index: 10;" onchange="this.previousElementSibling.textContent = this.files[0] ? this.files[0].name : 'Paste or drag files here (or click to upload)';">
                         </div>
                     </div>
                 </div>
@@ -863,10 +865,21 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
                 let minDateStr = d.toISOString().split('T')[0];
                 if (startDateInput) startDateInput.min = minDateStr;
                 if (endInput) endInput.min = minDateStr;
+                // Update Flatpickr minDate
+                if (typeof fpStart !== 'undefined') fpStart.set('minDate', minDateStr);
+                if (typeof fpEnd !== 'undefined') fpEnd.set('minDate', minDateStr);
+            } else if (type === 'Emergency Leave') {
+                durationInput.max = alBal;
+                if (startDateInput) startDateInput.removeAttribute('min');
+                if (endInput) endInput.removeAttribute('min');
+                if (typeof fpStart !== 'undefined') fpStart.set('minDate', null);
+                if (typeof fpEnd !== 'undefined') fpEnd.set('minDate', null);
             } else if (type === 'Sick Leave') {
                 durationInput.max = slBal;
                 if (startDateInput) startDateInput.removeAttribute('min');
                 if (endInput) endInput.removeAttribute('min');
+                if (typeof fpStart !== 'undefined') fpStart.set('minDate', null);
+                if (typeof fpEnd !== 'undefined') fpEnd.set('minDate', null);
             } else {
                 durationInput.removeAttribute('max');
                 if (startDateInput) startDateInput.removeAttribute('min');
@@ -932,23 +945,14 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
 
     <script>
         // Flatpickr Initialization
-        const publicHolidays = [
-            '2026-01-01', // New Year's Day
-            '2026-01-28', // Thaipusam
-            '2026-02-12', // Chinese New Year (Day 1)
-            '2026-02-13', // Chinese New Year (Day 2)
-            '2026-03-20', // Hari Raya Aidilfitri (Day 1)
-            '2026-03-21', // Hari Raya Aidilfitri (Day 2)
-            '2026-05-01', // Labour Day
-            '2026-05-24', // Wesak Day
-            '2026-05-27', // Hari Raya Haji
-            '2026-06-06', // Agong's Birthday
-            '2026-07-07', // Awal Muharram
-            '2026-08-31', // Merdeka Day
-            '2026-09-16', // Malaysia Day
-            '2026-11-08', // Deepavali
-            '2026-12-25'  // Christmas
-        ];
+        const publicHolidays = <?php
+            $ph_result = mysqli_query($conn, "SELECT holiday_date FROM public_holidays ORDER BY holiday_date ASC");
+            $ph_dates = [];
+            while ($ph_row = mysqli_fetch_assoc($ph_result)) {
+                $ph_dates[] = $ph_row['holiday_date'];
+            }
+            echo json_encode($ph_dates);
+        ?>;
 
         function calculateDuration() {
             const start = document.getElementById('modal_start_date').value;
@@ -983,8 +987,16 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
                 }
                 current.setDate(current.getDate() + 1);
             }
+            if (days === 1 && durationInput.value === '0.5') {
+                // User explicitly requested half day on a single date, do not overwrite
+            } else {
+                durationInput.value = days;
+            }
             
-            durationInput.value = days;
+            // Trigger the toggle to ensure UI responds to the updated duration if needed
+            if (typeof toggleLeaveModalFields === 'function') {
+                toggleLeaveModalFields('duration');
+            }
         }
 
         const fpConfig = {
@@ -1007,13 +1019,27 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
             }
         };
 
-        flatpickr("#modal_start_date", fpConfig);
-        flatpickr("#modal_end_date", fpConfig);
+        const fpStart = flatpickr("#modal_start_date", fpConfig);
+        const fpEnd = flatpickr("#modal_end_date", fpConfig);
 
 
         if (!sessionStorage.getItem('friday_reminded') && document.getElementById('friday-reminder')) {
             document.getElementById('friday-reminder').style.display = 'flex';
         }
+
+        <?php if (!empty($status_message)): ?>
+            if ("Notification" in window) {
+                if (Notification.permission === "granted") {
+                    new Notification("WeRide Status Update", { body: <?php echo json_encode($status_message); ?> });
+                } else if (Notification.permission !== "denied") {
+                    Notification.requestPermission().then(permission => {
+                        if (permission === "granted") {
+                            new Notification("WeRide Status Update", { body: <?php echo json_encode($status_message); ?> });
+                        }
+                    });
+                }
+            }
+        <?php endif; ?>
     </script>
 
 </body>

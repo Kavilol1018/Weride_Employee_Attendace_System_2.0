@@ -73,11 +73,13 @@ mysqli_query($conn, $sql_access);
 $emp_columns = [
     'onboarding_date' => "ALTER TABLE employees ADD COLUMN onboarding_date DATE DEFAULT NULL",
     'department' => "ALTER TABLE employees ADD COLUMN department VARCHAR(100) DEFAULT 'General'",
-    'annual_leave_balance' => "ALTER TABLE employees ADD COLUMN annual_leave_balance INT DEFAULT 8",
-    'sick_leave_balance' => "ALTER TABLE employees ADD COLUMN sick_leave_balance INT DEFAULT 14",
+    'annual_leave_balance' => "ALTER TABLE employees ADD COLUMN annual_leave_balance DECIMAL(5,1) DEFAULT 8.0",
+    'sick_leave_balance' => "ALTER TABLE employees ADD COLUMN sick_leave_balance DECIMAL(5,1) DEFAULT 14.0",
     'shift_hour' => "ALTER TABLE employees ADD COLUMN shift_hour VARCHAR(20) DEFAULT '09:00-18:00'",
     'welabel_id' => "ALTER TABLE employees ADD COLUMN welabel_id VARCHAR(100) DEFAULT NULL",
-    'group_leader_id' => "ALTER TABLE employees ADD COLUMN group_leader_id VARCHAR(50) DEFAULT NULL"
+    'group_leader_id' => "ALTER TABLE employees ADD COLUMN group_leader_id VARCHAR(50) DEFAULT NULL",
+    'unpaid_leave_balance' => "ALTER TABLE employees ADD COLUMN unpaid_leave_balance DECIMAL(5,1) DEFAULT 0.0",
+    'hospitalization_leave_balance' => "ALTER TABLE employees ADD COLUMN hospitalization_leave_balance DECIMAL(5,1) DEFAULT 60.0"
 ];
 
 $cols_res = mysqli_query($conn, "SHOW COLUMNS FROM employees");
@@ -120,6 +122,7 @@ $leave_columns = [
     'duration' => "ALTER TABLE leave_requests ADD COLUMN duration VARCHAR(50) DEFAULT NULL",
     'application_date' => "ALTER TABLE leave_requests ADD COLUMN application_date DATE DEFAULT NULL",
     'mc_attachment' => "ALTER TABLE leave_requests ADD COLUMN mc_attachment VARCHAR(255) DEFAULT NULL",
+    'rejection_topic' => "ALTER TABLE leave_requests ADD COLUMN rejection_topic VARCHAR(255) DEFAULT NULL",
     'rejection_reason' => "ALTER TABLE leave_requests ADD COLUMN rejection_reason TEXT DEFAULT NULL",
     'start_time' => "ALTER TABLE leave_requests ADD COLUMN start_time TIME DEFAULT NULL",
     'end_time' => "ALTER TABLE leave_requests ADD COLUMN end_time TIME DEFAULT NULL"

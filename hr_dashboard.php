@@ -93,6 +93,7 @@ $manpower_sql = "
         e.emp_id, 
         e.name, 
         e.employment_type,
+        e.shift_hour,
         COALESCE(lb.break_start, sb.break_start) as break_start,
         CASE 
             WHEN lb.status = 'on_break' THEN 'on_break'
@@ -290,9 +291,9 @@ $today_breaks = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt F
                             <th>Status</th>
                             <th>Clock In</th>
                             <th>Clock Out</th>
-                            <th>Time Started</th>
-                            <th>Limit</th>
+                            <th>Status</th>
                             <th>Elapsed</th>
+                            <th>Limit</th>
                             <th>Remaining</th>
                         </tr>
                     </thead>
@@ -304,6 +305,33 @@ $today_breaks = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt F
                                 $elapsed_text = '--';
                                 $elapsed_class = 'elapsed-text';
                                 $break_start_display = '--';
+
+                                $shift_parts = explode('-', $row['shift_hour'] ?? '09:00 - 18:00');
+                                $shift_start = trim($shift_parts[0]);
+                                $late_status_display = '--';
+                                $late_elapsed_display = '--';
+                                $late_status_color = '#94a3b8';
+                                if ($row['clock_in_time']) {
+                                    $clock_in_dt = new DateTime($row['clock_in_time']);
+                                    $clock_in_time_only = $clock_in_dt->format('H:i');
+                                    $shift_start_dt = DateTime::createFromFormat('H:i', $shift_start);
+                                    if (!$shift_start_dt) $shift_start_dt = DateTime::createFromFormat('H:i:s', $shift_start . ':00');
+                                    if ($shift_start_dt) {
+                                        if ($clock_in_time_only > $shift_start_dt->format('H:i')) {
+                                            $late_status_display = 'Late';
+                                            $late_status_color = '#ef4444';
+                                            $clock_in_minutes = ((int)$clock_in_dt->format('H') * 60) + (int)$clock_in_dt->format('i');
+                                            $shift_start_minutes = ((int)$shift_start_dt->format('H') * 60) + (int)$shift_start_dt->format('i');
+                                            $late_mins = $clock_in_minutes - $shift_start_minutes;
+                                            if ($late_mins > 0) $late_elapsed_display = $late_mins . ' min';
+                                        } else {
+                                            $late_status_display = 'On Time';
+                                            $late_status_color = '#10b981';
+                                            $late_elapsed_display = '0 min';
+                                        }
+                                    }
+                                }
+
                                 $total_override_mins = (int)$row['total_override_mins'];
                                 $lb_limit_mins = 60 + $total_override_mins;
                                 
@@ -359,6 +387,7 @@ $today_breaks = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt F
                                 $onclick = $is_on_break ? "onclick=\"openFloatingBox('" . htmlspecialchars($row['name'], ENT_QUOTES) . "', '" . htmlspecialchars($row['employment_type'], ENT_QUOTES) . "', '$break_start_display', '$elapsed_minutes', '" . htmlspecialchars($row['emp_id'], ENT_QUOTES) . "', '" . htmlspecialchars($row['break_type'], ENT_QUOTES) . "', " . $limit_arg . ")\"" : "";
                                 $row_class = $is_on_break ? "class='clickable'" : "";
 
+                                $has_clocked_out = !empty($row['clock_out_time']) && strpos($row['clock_out_time'], '0000-00-00') === false;
                                 $row_status = '';
                                 if ($row['leave_status']) {
                                     $row_status = 'On Leave';
@@ -366,6 +395,18 @@ $today_breaks = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt F
                                     $row_status = 'Absent';
                                 } else if (empty($row['clock_in_time'])) {
                                     $row_status = 'Not Clocked In';
+                                } else if ($has_clocked_out) {
+                                    $shift_parts_end = explode('-', $row['shift_hour'] ?? '09:00 - 18:00');
+                                    $shift_end = trim($shift_parts_end[1] ?? '18:00');
+                                    $clock_out_dt = new DateTime($row['clock_out_time']);
+                                    $clock_out_time_only = $clock_out_dt->format('H:i');
+                                    $shift_end_dt = DateTime::createFromFormat('H:i', $shift_end);
+                                    if (!$shift_end_dt) $shift_end_dt = DateTime::createFromFormat('H:i:s', $shift_end . ':00');
+                                    if ($shift_end_dt && $clock_out_time_only < $shift_end_dt->format('H:i')) {
+                                        $row_status = 'Left Early';
+                                    } else {
+                                        $row_status = 'Unavailable';
+                                    }
                                 } else if ($is_on_break) {
                                     $row_status = 'On Break';
                                 } else {
@@ -382,6 +423,12 @@ $today_breaks = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt F
                                     echo "<td><span class='badge' style='background:#fef2f2; color:#ef4444;'>Absent</span></td>";
                                 } else if (empty($row['clock_in_time'])) {
                                     echo "<td><span class='badge' style='background:#f1f5f9; color:#64748b;'>Not Clocked In</span></td>";
+                                } else if ($has_clocked_out) {
+                                    if ($row_status === 'Left Early') {
+                                        echo "<td><span class='badge' style='background:#fef3c7; color:#d97706;'>Left Early</span></td>";
+                                    } else {
+                                        echo "<td><span class='badge' style='background:#e2e8f0; color:#475569;'>Unavailable</span></td>";
+                                    }
                                 } else if ($is_on_break) {
                                     echo "<td><span class='badge bg-on-break'>" . htmlspecialchars($row['break_type']) . "</span></td>";
                                 } else {
@@ -394,9 +441,9 @@ $today_breaks = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt F
                                 echo "<td style='font-size: 13px; font-weight: 600; color: #475569;'>" . $c_in_display . "</td>";
                                 echo "<td style='font-size: 13px; font-weight: 600; color: #475569;'>" . $c_out_display . "</td>";
                                 
-                                echo "<td style='color: " . ($is_on_break ? '#0f172a; font-weight: 600;' : '#94a3b8;') . "'>" . $break_start_display . "</td>";
+                                echo "<td><span class='badge' style='background: " . str_replace('#', 'rgba(', $late_status_color) . ",0.1); color: " . $late_status_color . ";'>" . $late_status_display . "</span></td>";
+                                echo "<td><span class='elapsed-text' style='color: " . ($late_status_display === 'Late' ? '#ef4444' : '#94a3b8') . "; font-weight: 700;'>" . $late_elapsed_display . "</span></td>";
                                 echo "<td><span class='elapsed-text'>" . $limit_text . "</span></td>";
-                                echo "<td><span class='$elapsed_class'>" . $elapsed_text . "</span></td>";
                                 echo "<td><span class='elapsed-text'>" . $rem_text . "</span></td>";
                                 echo "</tr>";
                             }
@@ -435,23 +482,8 @@ $today_breaks = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt F
 
             <form method="POST" action="" id="forceEndForm">
                 <input type="hidden" name="break_employee_id" id="modalEmpId">
-                <button type="submit" name="force_end_break" class="modal-btn">⚡ Force Meal Out</button>
-            
-                    <div style='flex: 100%; display: flex; gap: 15px; margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0; flex-wrap: wrap;'>
-                        <label style='display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #475569; cursor: pointer;'>
-                            <input type='checkbox' checked onchange='document.getElementById("card-avgChart").style.display = this.checked ? "block" : "none"'> Show Avg Lunchtime
-                        </label>
-                        <label style='display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #475569; cursor: pointer;'>
-                            <input type='checkbox' checked onchange='document.getElementById("card-vioChart").style.display = this.checked ? "block" : "none"'> Show Violations
-                        </label>
-                        <label style='display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #475569; cursor: pointer;'>
-                            <input type='checkbox' checked onchange='document.getElementById("card-availChart").style.display = this.checked ? "block" : "none"'> Show Staff Availability
-                        </label>
-                        <label style='display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #475569; cursor: pointer;'>
-                            <input type='checkbox' checked onchange='document.getElementById("manpower-section").style.display = this.checked ? "block" : "none"'> Show Manpower Overview
-                        </label>
-                    </div>
-                </form>
+                <button type="submit" name="force_end_break" class="modal-btn">Force Stop</button>
+            </form>
 
         </div>
     </div>

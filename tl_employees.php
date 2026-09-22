@@ -24,14 +24,14 @@ if (isset($_POST['add_employee'])) {
     }
     $check = mysqli_query($conn, $check_query);
     if (mysqli_num_rows($check) > 0) {
-        header("Location: hr_employees.php?error=" . urlencode("Employee ID, WeLabel ID, or Name already exists!"));
+        $qs = $_SERVER['QUERY_STRING'] ? '&' . $_SERVER['QUERY_STRING'] : ''; header("Location: tl_employees.php?error=" . urlencode("Employee ID, WeLabel ID, or Name already exists!") . $qs);
         exit();
     }
 
     $sql = "INSERT INTO employees (emp_id, welabel_id, name, password, employment_type, role, lunch_window) VALUES ('$emp_id', '$welabel_id', '$name', '$password', '$employment_type', '$role', '$lunch_window')";
     mysqli_query($conn, $sql);
     
-    header("Location: hr_employees.php");
+    $qs = $_SERVER['QUERY_STRING'] ? '?' . $_SERVER['QUERY_STRING'] : ''; header("Location: tl_employees.php" . $qs);
     exit();
 }
 
@@ -52,14 +52,14 @@ if (isset($_POST['edit_employee'])) {
     }
     $check = mysqli_query($conn, $check_query);
     if (mysqli_num_rows($check) > 0) {
-        header("Location: hr_employees.php?error=" . urlencode("Employee ID, WeLabel ID, or Name already exists!"));
+        $qs = $_SERVER['QUERY_STRING'] ? '&' . $_SERVER['QUERY_STRING'] : ''; header("Location: tl_employees.php?error=" . urlencode("Employee ID, WeLabel ID, or Name already exists!") . $qs);
         exit();
     }
 
     $sql = "UPDATE employees SET emp_id='$emp_id', welabel_id='$welabel_id', name='$name', employment_type='$employment_type', role='$role', lunch_window='$lunch_window' WHERE id='$edit_id'";
     mysqli_query($conn, $sql);
     
-    header("Location: hr_employees.php");
+    $qs = $_SERVER['QUERY_STRING'] ? '?' . $_SERVER['QUERY_STRING'] : ''; header("Location: tl_employees.php" . $qs);
     exit();
 }
 
@@ -74,7 +74,7 @@ if (isset($_POST['delete_employee'])) {
     $sql = "DELETE FROM employees WHERE id = '$delete_id'";
     mysqli_query($conn, $sql);
     
-    header("Location: hr_employees.php");
+    $qs = $_SERVER['QUERY_STRING'] ? '?' . $_SERVER['QUERY_STRING'] : ''; header("Location: tl_employees.php" . $qs);
     exit();
 }
 
@@ -93,7 +93,7 @@ if (isset($_POST['bulk_delete_employees']) && !empty($_POST['selected_ids'])) {
     $sql = "DELETE FROM employees WHERE id IN ('$ids_string')";
     mysqli_query($conn, $sql);
     
-    header("Location: hr_employees.php");
+    $qs = $_SERVER['QUERY_STRING'] ? '?' . $_SERVER['QUERY_STRING'] : ''; header("Location: tl_employees.php" . $qs);
     exit();
 }
 
@@ -105,7 +105,7 @@ if (isset($_POST['reset_password'])) {
     $sql = "UPDATE employees SET password='$new_password' WHERE id='$reset_id'";
     mysqli_query($conn, $sql);
     
-    header("Location: hr_employees.php?msg=" . urlencode("Password reset to 'password123'"));
+    $qs = $_SERVER['QUERY_STRING'] ? '&' . $_SERVER['QUERY_STRING'] : ''; header("Location: tl_employees.php?msg=" . urlencode("Password reset to 'password123'") . $qs);
     exit();
 }
 ?>
@@ -190,8 +190,15 @@ if (isset($_POST['reset_password'])) {
             $stats = ['Full time' => 0, 'Intern' => 0];
             $total = 0;
             while($row = mysqli_fetch_assoc($stats_query)){
-                if(isset($stats[$row['employment_type']])) {
-                    $stats[$row['employment_type']] = $row['count'];
+                $type = $row['employment_type'];
+                if(strpos(strtolower($type), 'full') !== false && strpos(strtolower($type), 'time') !== false) {
+                    $stats['Full time'] += $row['count'];
+                } elseif (strpos(strtolower($type), 'intern') !== false) {
+                    $stats['Intern'] += $row['count'];
+                } else {
+                    if(isset($stats[$type])) {
+                        $stats[$type] += $row['count'];
+                    }
                 }
                 $total += $row['count'];
             }
@@ -228,7 +235,7 @@ if (isset($_POST['reset_password'])) {
             </div>
             <div class="table-container" style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
                 <div style="margin-bottom: 15px; display: flex; justify-content: flex-end;">
-                    <input type="text" id="searchInput" onkeyup="searchTable()" placeholder="Search employees by ID, WeLabel ID, or Name..." style="padding: 10px 15px; border: 1px solid #cbd5e1; border-radius: 24px; width: 350px; font-size: 14px; outline: none; transition: border-color 0.2s;">
+                    <input type="text" id="searchInput" oninput="searchTable()" placeholder="Search employees by ID, WeLabel ID, or Name..." style="padding: 10px 15px; border: 1px solid #cbd5e1; border-radius: 24px; width: 350px; font-size: 14px; outline: none; transition: border-color 0.2s;">
                 </div>
                 <form id="bulkDeleteForm" method="POST" action="">
                     <input type="hidden" name="bulk_delete_employees" value="1">
@@ -299,21 +306,15 @@ if (isset($_POST['reset_password'])) {
                                 echo "<td style='padding-right: 10px;'><input type='checkbox' name='selected_ids[]' value='" . $row['id'] . "' class='rowCheckbox' style='transform: scale(1.2); cursor: pointer;' onclick='updateBulkDeleteBtn()'></td>";
                                 echo "<td style='font-weight: 600; color: #0f172a;'>#" . htmlspecialchars($row['emp_id']) . "</td>";
                                 echo "<td style='font-weight: 600; color: #059669;'>" . htmlspecialchars($row['welabel_id'] ?? '') . "</td>";
-                                echo "<td style='font-weight: 500;'>" . htmlspecialchars($row['name']) . "</td>";
+                                echo "<td style='font-weight: 500; text-transform: uppercase;'>" . htmlspecialchars($row['name']) . "</td>";
                                 echo "<td><span style='background: {$color['bg']}; padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; color: {$color['text']}; text-transform: uppercase;'>" . htmlspecialchars($row['employment_type']) . "</span></td>";
                                 
                                 echo "<td>
                                         <div class='actions-cell'>
-                                            <button type='button' onclick='openDetailsModal(\"" . htmlspecialchars($row['emp_id'], ENT_QUOTES) . "\", \"" . htmlspecialchars(addslashes($row['name'])) . "\", \"" . htmlspecialchars($row['employment_type'], ENT_QUOTES) . "\", \"" . htmlspecialchars($row['onboarding_date'] ?? '-', ENT_QUOTES) . "\", " . ($row['annual_leave_balance'] ?? 8) . ", " . ($row['sick_leave_balance'] ?? 14) . ", \"" . htmlspecialchars($row['role'] ?? '') . "\", \"" . htmlspecialchars($row['lunch_window'] ?? '') . "\", \"" . htmlspecialchars($row['shift_hour'] ?? '09:00-18:00') . "\")' class='btn-edit' style='background-color:#e0e7ff; color:#4338ca;'>Details</button>
+                                            <button type='button' onclick='openDetailsModal(\"" . htmlspecialchars($row['emp_id'], ENT_QUOTES) . "\", \"" . htmlspecialchars(addslashes($row['name'])) . "\", \"" . htmlspecialchars($row['employment_type'], ENT_QUOTES) . "\", \"" . htmlspecialchars($row['onboarding_date'] ?? '-', ENT_QUOTES) . "\", " . ($row['annual_leave_balance'] ?? 8) . ", " . ($row['sick_leave_balance'] ?? 14) . ", \"" . htmlspecialchars($row['role'] ?? '') . "\", \"" . htmlspecialchars($row['lunch_window'] ?? '') . "\", \"" . htmlspecialchars($row['shift_hour'] ?? '09:00-18:00') . "\", " . ($row['unpaid_leave_balance'] ?? 0) . ", " . ($row['hospitalization_leave_balance'] ?? 60) . ")' class='btn-edit' style='background-color:#e0e7ff; color:#4338ca;'>Details</button>
                                             
-                                            <form method='POST' action='' style='margin:0;' onsubmit='return confirm(\"Are you sure you want to reset this employee\\'s password to \\'password123\\'?\");'>
-                                                <input type='hidden' name='reset_id' value='" . $row['id'] . "'>
-                                                <button type='submit' name='reset_password' class='btn-edit' style='background-color:#fef3c7; color:#d97706;'>Reset Pwd</button>
-                                            </form>
-                                            <form method='POST' action='' style='margin:0;' onsubmit='return confirm(\"Are you sure you want to delete this employee?\");'>
-                                                <input type='hidden' name='delete_id' value='" . $row['id'] . "'>
-                                                <button type='submit' name='delete_employee' class='btn-delete'>Delete</button>
-                                            </form>
+                                            <button type='button' class='btn-edit' style='background-color:#fef3c7; color:#d97706;' onclick='resetPassword(" . $row['id'] . ", \"" . htmlspecialchars(addslashes($row['name'])) . "\")'>Reset Pwd</button>
+                                            <button type='button' class='btn-delete' onclick='deleteEmployee(" . $row['id'] . ", \"" . htmlspecialchars(addslashes($row['name'])) . "\")'>Delete</button>
                                         </div>
                                       </td>";
                                 echo "</tr>";
@@ -353,29 +354,49 @@ if (isset($_POST['reset_password'])) {
         }
 
         function searchTable() {
-            var input, filter, table, tr, td, i, txtValue;
-            input = document.getElementById("searchInput");
-            filter = input.value.toUpperCase();
-            table = document.querySelector(".table-container table");
-            tr = table.getElementsByTagName("tr");
-            for (i = 1; i < tr.length; i++) {
-                let match = false;
-                for (let j = 1; j <= 3; j++) {
-                    td = tr[i].getElementsByTagName("td")[j];
-                    if (td) {
-                        txtValue = td.textContent || td.innerText;
-                        if (txtValue.toUpperCase().indexOf(filter) > -1) {
-                            match = true;
-                            break;
+            try {
+                let input = document.getElementById("searchInput").value.toLowerCase();
+                let rows = document.querySelectorAll("tbody tr");
+                rows.forEach(row => {
+                    if(row.cells && row.cells.length > 1) { 
+                        let textToSearch = "";
+                        for(let i = 1; i <= 3; i++) {
+                            if(row.cells[i]) textToSearch += (row.cells[i].textContent || "").toLowerCase() + " ";
+                        }
+                        if(textToSearch.indexOf(input) > -1) {
+                            row.style.setProperty("display", "", "important");
+                        } else {
+                            row.style.setProperty("display", "none", "important");
                         }
                     }
-                }
-                if (tr[i].getElementsByTagName("td").length > 1) {
-                    tr[i].style.display = match ? "" : "none";
-                }
+                });
+            } catch(e) {
+                console.error("Search failed:", e);
+            }
+        }
+        function resetPassword(id, name) {
+            if (confirm("Are you sure you want to reset " + name + "'s password to 'password123'?")) {
+                document.getElementById('reset_id_input').value = id;
+                document.getElementById('singleResetForm').submit();
+            }
+        }
+
+        function deleteEmployee(id, name) {
+            if (confirm("Are you sure you want to delete " + name + "?")) {
+                document.getElementById('delete_id_input').value = id;
+                document.getElementById('singleDeleteForm').submit();
             }
         }
     </script>
+
+    <form id="singleResetForm" method="POST" action="" style="display:none;">
+        <input type="hidden" name="reset_id" id="reset_id_input">
+        <input type="hidden" name="reset_password" value="1">
+    </form>
+    <form id="singleDeleteForm" method="POST" action="" style="display:none;">
+        <input type="hidden" name="delete_id" id="delete_id_input">
+        <input type="hidden" name="delete_employee" value="1">
+    </form>
 
     <!-- ADD EMPLOYEE MODAL -->
     <div id="addModal" class="modal-overlay">
@@ -470,26 +491,34 @@ if (isset($_POST['reset_password'])) {
                 <div style="font-size: 14px; margin-bottom: 8px;"><strong>Employment Type:</strong> <span id="det_type">-</span></div>
                 <div style="font-size: 14px; margin-bottom: 8px;"><strong>Role:</strong> <span id="det_role">-</span></div>
                 <div style="font-size: 14px; margin-bottom: 8px;"><strong>Shift Hour:</strong> <span id="det_shift">-</span></div>
-                <div style="font-size: 14px; margin-bottom: 8px;"><strong>Lunch Limit:</strong> <span id="det_lunch">-</span></div>
+                <div style="font-size: 14px; margin-bottom: 8px;"><strong>Lunch Time:</strong> <span id="det_lunch">-</span></div>
                 <div style="font-size: 14px;"><strong>Onboarding Date:</strong> <span id="det_onboarding">-</span></div>
             </div>
 
-            <h3 class="text-slate-900" style="font-size: 16px; margin-bottom: 12px; ">Remaining Leave Balances</h3>
+            <h3 class="text-slate-900 dark:text-slate-100" style="font-size: 16px; margin-bottom: 12px; ">Remaining Leave Balances</h3>
             <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; text-align: center;">
-                <div class="bg-blue-50" style=" padding:12px; border-radius:10px; border:1px solid #bfdbfe;">
-                    <div style="font-size:12px; color:#1e40af; font-weight:600;">Annual</div>
-                    <div style="font-size:22px; font-weight:800; color:#1d4ed8;" id="det_al">14</div>
+                <div class="bg-blue-50 dark:bg-slate-700" style="padding:12px; border-radius:10px; border:1px solid #bfdbfe;">
+                    <div style="font-size:12px; font-weight:600;" class="text-blue-800 dark:text-blue-300">Annual Leave</div>
+                    <div style="font-size:22px; font-weight:800;" class="text-blue-700 dark:text-blue-400" id="det_al">0 / 8</div>
                 </div>
-                <div class="bg-green-50" style=" padding:12px; border-radius:10px; border:1px solid #bbf7d0;">
-                    <div style="font-size:12px; color:#166534; font-weight:600;">Sick</div>
-                    <div style="font-size:22px; font-weight:800; color:#15803d;" id="det_sl">14</div>
+                <div class="bg-green-50 dark:bg-slate-700" style="padding:12px; border-radius:10px; border:1px solid #bbf7d0;">
+                    <div style="font-size:12px; font-weight:600;" class="text-green-800 dark:text-green-300">Sick Leave</div>
+                    <div style="font-size:22px; font-weight:800;" class="text-green-700 dark:text-green-400" id="det_sl">0 / 14</div>
+                </div>
+                <div class="bg-orange-50 dark:bg-slate-700" style="padding:12px; border-radius:10px; border:1px solid #fed7aa;">
+                    <div style="font-size:12px; font-weight:600;" class="text-orange-800 dark:text-orange-300">Unpaid Leave</div>
+                    <div style="font-size:22px; font-weight:800;" class="text-orange-700 dark:text-orange-400" id="det_upl">0</div>
+                </div>
+                <div class="bg-purple-50 dark:bg-slate-700" style="padding:12px; border-radius:10px; border:1px solid #e9d5ff;">
+                    <div style="font-size:12px; font-weight:600;" class="text-purple-800 dark:text-purple-300">Hospitalization</div>
+                    <div style="font-size:22px; font-weight:800;" class="text-purple-700 dark:text-purple-400" id="det_hosp">0</div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        function openDetailsModal(empId, name, type, onboarding, al, sl, role, lunch, shift) {
+        function openDetailsModal(empId, name, type, onboarding, al, sl, role, lunch, shift, upl = 0, hosp = 60) {
             document.getElementById('det_emp_id').innerText = empId;
             document.getElementById('det_name').innerText = name;
             document.getElementById('det_type').innerText = type;
@@ -497,8 +526,17 @@ if (isset($_POST['reset_password'])) {
             document.getElementById('det_shift').innerText = shift || '-';
             document.getElementById('det_lunch').innerText = lunch || '-';
             document.getElementById('det_onboarding').innerText = onboarding;
-            document.getElementById('det_al').innerText = al;
-            document.getElementById('det_sl').innerText = sl;
+            
+            let al_quota = (type && type.toLowerCase() === 'intern') ? 0 : 8;
+            let sl_quota = (type && type.toLowerCase() === 'intern') ? 0 : 14;
+            let hosp_quota = (type && type.toLowerCase() === 'intern') ? 0 : 60;
+            if (type && type.toLowerCase() === 'intern') hosp = 0;
+            
+            document.getElementById('det_al').innerText = al + ' / ' + al_quota;
+            document.getElementById('det_sl').innerText = sl + ' / ' + sl_quota;
+            document.getElementById('det_upl').innerText = upl;
+            document.getElementById('det_hosp').innerText = hosp + ' / ' + hosp_quota;
+            
             document.getElementById('detailsModal').style.display = 'flex';
         }
 

@@ -37,7 +37,11 @@ for ($d = 1; $d <= $days_in_month; $d++) {
 fputcsv($output, $headers);
 
 // Fetch employees
-$where_sql = !empty($filter_team_lead) ? "WHERE group_leader_id = '$filter_team_lead'" : "";
+if (!empty($filter_team_lead)) {
+    $where_sql = "WHERE group_leader_id = '$filter_team_lead' AND role NOT IN ('admin', 'hr')";
+} else {
+    $where_sql = "WHERE role NOT IN ('admin', 'hr')";
+}
 $emp_query = mysqli_query($conn, "SELECT emp_id, name, employment_type, onboarding_date, group_leader_id FROM employees $where_sql ORDER BY name ASC");
 
 // Fetch all employee names for mapping leader names
@@ -58,22 +62,35 @@ if ($att_query) {
 
 // Fetch Approved Leaves
 $leaves = [];
-$leave_query = mysqli_query($conn, "SELECT emp_id, start_date, end_date, leave_type FROM leave_requests WHERE status = 'approved' AND (MONTH(start_date) = $selected_month OR MONTH(end_date) = $selected_month) AND YEAR(start_date) = $selected_year");
+$leave_query = mysqli_query($conn, "SELECT emp_id, start_date, end_date, leave_type, duration FROM leave_requests WHERE status = 'approved' AND (MONTH(start_date) = $selected_month OR MONTH(end_date) = $selected_month) AND YEAR(start_date) = $selected_year");
 if ($leave_query) {
     while ($row = mysqli_fetch_assoc($leave_query)) {
         $emp_id = $row['emp_id'];
         $start = strtotime($row['start_date']);
         $end = strtotime($row['end_date']);
+        $duration = (float)($row['duration'] ?? 1.0);
+        $is_half = ($duration == 0.5);
         
         for ($i = $start; $i <= $end; $i += 86400) {
             if (date('n', $i) == $selected_month) {
                 $day = (int)date('j', $i);
                 $lt = strtoupper($row['leave_type']);
-                if (strpos($lt, 'HALF') !== false) $abbr = 'HD';
-                elseif (strpos($lt, 'EMERGENCY') !== false) $abbr = 'EMERGENCY';
-                elseif (strpos($lt, 'ANNUAL') !== false) $abbr = 'AL';
+                
+                if (strpos($lt, 'ANNUAL') !== false) $abbr = 'AL';
                 elseif (strpos($lt, 'SICK') !== false) $abbr = 'SL';
+                elseif (strpos($lt, 'UNPAID') !== false) $abbr = 'UPL';
+                elseif (strpos($lt, 'HOSPITAL') !== false) $abbr = 'HL';
+                elseif (strpos($lt, 'EMERGENCY') !== false) $abbr = 'EMERGENCY';
                 else $abbr = 'L';
+                
+                if ($is_half && in_array($abbr, ['AL', 'SL'])) {
+                    $abbr = '0.5 ' . $abbr;
+                } elseif ($is_half && $abbr === 'UPL') {
+                    $abbr = '0.5UPL';
+                } elseif ($is_half) {
+                    $abbr = 'HD';
+                }
+                
                 $leaves[$emp_id][$day] = $abbr;
             }
         }
@@ -112,8 +129,9 @@ while ($emp = mysqli_fetch_assoc($emp_query)) {
         $is_before_onboarding = ($onboarding_time > 0 && $current_date_time < $onboarding_time);
         
         $status = '';
+        // 1. Check before onboarding
         if ($is_before_onboarding) {
-            $status = 'BLACK';
+            $status = 'BO';
             $before_onboarding_count++;
         } elseif (isset($attendance[$emp_id][$d])) {
             $att_status = strtoupper($attendance[$emp_id][$d]);
@@ -124,10 +142,6 @@ while ($emp = mysqli_fetch_assoc($emp_query)) {
                 $status = 'LATE';
                 $present_count++;
                 $late_count++;
-            } elseif ($att_status == 'EMERGENCY') {
-                $status = 'EMERGENCY';
-                $present_count++;
-                $early_count++;
             } elseif (in_array($att_status, ['A', 'ABSENT'])) {
                 $status = 'A';
                 $absent_count++;
@@ -137,10 +151,29 @@ while ($emp = mysqli_fetch_assoc($emp_query)) {
             } elseif ($att_status == 'WO') {
                 $status = 'WO';
                 $weekend_count++;
+            } elseif ($att_status == 'AL') {
+                $status = 'AL';
+                $annual_leave_count++;
+            } elseif ($att_status == 'SL') {
+                $status = 'SL';
+                $sick_leave_count++;
+            } elseif ($att_status == '0.5 AL') {
+                $status = '0.5 AL';
+                $present_count += 0.5;
+                $annual_leave_count += 0.5;
+            } elseif ($att_status == '0.5 SL') {
+                $status = '0.5 SL';
+                $present_count += 0.5;
+                $sick_leave_count += 0.5;
+            } elseif ($att_status == '0.5UPL') {
+                $status = '0.5UPL';
+                $present_count += 0.5;
             } elseif (in_array($att_status, ['HD', '0.5'])) {
                 $status = $att_status;
                 $present_count += 0.5;
-                $annual_leave_count += 0.5;
+            } elseif ($att_status == 'EMERGENCY') {
+                $status = 'EMERGENCY';
+                $early_count++;
             } else {
                 $status = $att_status;
             }
@@ -163,7 +196,7 @@ while ($emp = mysqli_fetch_assoc($emp_query)) {
                 $status = '';
             }
         }
-        $daily_cells[] = ($status === 'BLACK') ? '' : $status;
+        $daily_cells[] = ($status === 'BO') ? 'BO' : $status;
     }
     
     $working_days = $present_count + $annual_leave_count + $sick_leave_count;

@@ -664,7 +664,7 @@ if (isset($conn) && $role_slug !== 'employee') {
                 <!-- Full Statistics (non-employee) -->
                 <?php if ($role_slug !== 'employee'): ?>
                     <a href="admin_attendance.php" style="text-decoration: none;">
-                        <li class="nav-item <?php echo $current_page == 'admin_attendance.php' ? 'active' : ''; ?>">Full Statistics</li>
+                        <li class="nav-item <?php echo $current_page == 'admin_attendance.php' ? 'active' : ''; ?>">Calendar</li>
                     </a>
                 <?php endif; ?>
 
@@ -706,22 +706,7 @@ if (isset($conn) && $role_slug !== 'employee') {
     </ul>
 
     <div style="padding: 20px; border-top: 1px solid rgba(0,0,0,0.05);">
-        <div
-            style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: rgba(0,0,0,0.02); border-radius: 12px; margin-bottom: 15px;">
-            <div
-                class="text-slate-500" style="display: flex; align-items: center; gap: 8px;  font-weight: 600; font-size: 14px;">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-                </svg> Dark mode
-            </div>
-            <label class="switch" style="position: relative; display: inline-block; width: 44px; height: 24px;">
-                <input type="checkbox" id="theme-toggle" onchange="toggleTheme()"
-                    style="opacity: 0; width: 0; height: 0;">
-                <span class="slider round"
-                    style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e1; transition: .4s; border-radius: 24px;"></span>
-            </label>
-        </div>
+
         <a href="logout.php"
             class="text-red-500" style="text-decoration: none; display: block; text-align: center; background: #fee2e2;  padding: 12px; border-radius: 12px; font-weight: 700; transition: 0.2s;">🚪
             Logout</a>

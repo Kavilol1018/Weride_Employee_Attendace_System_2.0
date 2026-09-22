@@ -49,17 +49,35 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['leave_action']) && $ro
     $end_date = isset($_POST['end_date']) && !empty($_POST['end_date']) ? mysqli_real_escape_string($conn, $_POST['end_date']) : $start_date;
 
     if ($action == 'approve') {
-        if ($role_slug === 'gl') {
+        if (in_array($role_slug, ['gl', 'tl'])) {
             mysqli_query($conn, "UPDATE leave_requests SET status = 'pending_hr' WHERE id = $leave_id");
             $msg = "Leave request approved and forwarded to HR.";
         } else {
             mysqli_query($conn, "UPDATE leave_requests SET status = 'approved' WHERE id = $leave_id");
             
+            // Fetch the stored duration directly from the leave request (safely)
+            $lr_data_q = @mysqli_query($conn, "SELECT duration, start_date, end_date FROM leave_requests WHERE id = $leave_id");
+            $lr_data = $lr_data_q ? mysqli_fetch_assoc($lr_data_q) : null;
+            
+            if ($lr_data && !empty($lr_data['duration']) && (float)$lr_data['duration'] > 0) {
+                $days = (float)$lr_data['duration'];
+            } else {
+                $fallback_start = $lr_data['start_date'] ?? $start_date;
+                $fallback_end = $lr_data['end_date'] ?? $end_date ?? $fallback_start;
+                
+                $start_dt = new DateTime($fallback_start);
+                $end_dt = new DateTime($fallback_end);
+                $days = 0;
+                $current_dt = clone $start_dt;
+                while ($current_dt <= $end_dt) {
+                    $dow = (int)$current_dt->format('w');
+                    if ($dow !== 0 && $dow !== 6) $days++; // Skip weekends
+                    $current_dt->modify('+1 day');
+                }
+            }
+
             $start_dt = new DateTime($start_date);
             $end_dt = new DateTime($end_date);
-            $interval = $start_dt->diff($end_dt);
-            $days = $interval->days + 1;
-            
             $abbr = 'L';
             $lt = strtoupper($leave_type);
             if (strpos($lt, 'HALF') !== false) { $abbr = 'HD'; $days = 0.5; }
@@ -70,8 +88,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['leave_action']) && $ro
 
             $current_dt = clone $start_dt;
             while ($current_dt <= $end_dt) {
-                $date_str = $current_dt->format('Y-m-d');
-                mysqli_query($conn, "INSERT INTO attendance_logs (emp_id, date, status) VALUES ('$emp_id', '$date_str', '$abbr') ON DUPLICATE KEY UPDATE status = '$abbr'");
+                $day_of_week = (int)$current_dt->format('w'); // 0=Sun, 6=Sat
+                if ($day_of_week !== 0 && $day_of_week !== 6) {
+                    $date_str = $current_dt->format('Y-m-d');
+                    mysqli_query($conn, "INSERT INTO attendance_logs (emp_id, date, status) VALUES ('$emp_id', '$date_str', '$abbr') ON DUPLICATE KEY UPDATE status = '$abbr'");
+                }
                 $current_dt->modify('+1 day');
             }
 
@@ -89,8 +110,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['leave_action']) && $ro
             $msg = "Leave request approved successfully.";
         }
     } elseif ($action == 'reject') {
+        $rejection_topic = mysqli_real_escape_string($conn, $_POST['rejection_topic'] ?? 'Other');
         $rejection_reason = mysqli_real_escape_string($conn, $_POST['rejection_reason'] ?? '');
-        mysqli_query($conn, "UPDATE leave_requests SET status = 'rejected', rejection_reason = '$rejection_reason' WHERE id = $leave_id");
+        mysqli_query($conn, "UPDATE leave_requests SET status = 'rejected', rejection_topic = '$rejection_topic', rejection_reason = '$rejection_reason' WHERE id = $leave_id");
         $msg = "Leave request rejected.";
     }
 }
@@ -104,9 +126,10 @@ $selected_employees = isset($_GET['employees']) ? (array)$_GET['employees'] : []
 if ($role_slug === 'employee') {
     $history_query = mysqli_query($conn, "SELECT * FROM leave_requests WHERE emp_id='$current_employee_id' ORDER BY id DESC LIMIT 20");
 } else {
-    $target_status = ($role_slug === 'gl') ? 'pending' : 'pending_hr';
+    $is_manager = in_array($role_slug, ['gl', 'tl']);
+    $target_status = $is_manager ? 'pending' : 'pending_hr';
     $where_clauses = ["r.status = '$target_status'"];
-    if ($role_slug === 'gl') {
+    if ($is_manager) {
         $where_clauses[] = "e.group_leader_id = '$current_employee_id'";
     }
     
@@ -413,8 +436,13 @@ if ($role_slug === 'employee') {
                             <span class="badge badge-<?= strtolower($row['status']) ?>">
                                 <?= ucfirst($row['status']) ?>
                             </span>
-                            <?php if ($row['status'] === 'rejected' && !empty($row['rejection_reason'])): ?>
-                                <div style="font-size: 11px; color: #ef4444; margin-top: 4px; line-height: 1.2;">Reason: <?= htmlspecialchars($row['rejection_reason']) ?></div>
+                            <?php if ($row['status'] === 'rejected'): ?>
+                                <div style="font-size: 11px; color: #ef4444; margin-top: 4px; line-height: 1.2; font-weight: 600;">
+                                    Topic: <?= htmlspecialchars($row['rejection_topic'] ?? 'Other') ?>
+                                    <?php if (!empty($row['rejection_reason'])): ?>
+                                        <br><a href="javascript:void(0)" onclick="viewRejectionReason(`<?= htmlspecialchars(addslashes($row['rejection_reason'])) ?>`)" style="color: #dc2626; text-decoration: underline; font-size: 10px;">View Description</a>
+                                    <?php endif; ?>
+                                </div>
                             <?php endif; ?>
                         </td>
                         <?php if ($role_slug !== 'employee'): ?>
@@ -429,7 +457,7 @@ if ($role_slug === 'employee') {
                                 <input type="hidden" name="end_date" value="<?= $row['end_date'] ?>">
                                 
                                 <button type="submit" name="action" value="approve" class="btn" style="padding: 4px 8px; font-size: 12px; min-width: auto; background-color: #10b981;">Accept</button>
-                                <button type="button" class="btn btn-outline text-red-500" style="padding: 4px 8px; font-size: 12px; min-width: auto; border: none;" onclick="rejectLeave(this)">Reject</button>
+                                <button type="button" class="btn btn-outline text-red-500" style="padding: 4px 8px; font-size: 12px; min-width: auto; border: none;" onclick="openRejectModal(this)">Reject</button>
                             </form>
                             <?php else: ?>
                             <span style="color:#9ca3af; font-size: 12px;">Processed</span>
@@ -457,28 +485,62 @@ if ($role_slug === 'employee') {
     </div>
 
     <script>
+        let currentRejectForm = null;
+
+        function openRejectModal(btn) {
+            currentRejectForm = btn.closest('form');
+            document.getElementById('rejectLeaveModal').style.display = 'flex';
+        }
         
-        
-        function rejectLeave(btn) {
-            let reason = prompt("Please enter the reason for rejection:");
-            if (reason !== null) {
-                let form = btn.closest('form');
-                let reasonInput = document.createElement('input');
-                reasonInput.type = 'hidden';
-                reasonInput.name = 'rejection_reason';
-                reasonInput.value = reason;
-                form.appendChild(reasonInput);
-                
-                let actionInput = document.createElement('input');
-                actionInput.type = 'hidden';
-                actionInput.name = 'action';
-                actionInput.value = 'reject';
-                form.appendChild(actionInput);
-                
-                form.submit();
-            }
+        function viewRejectionReason(reason) {
+            document.getElementById('rejectionDescriptionText').innerText = reason;
+            document.getElementById('rejectionModal').style.display = 'flex';
         }
     </script>
+    
+    <!-- Reject Leave Modal -->
+    <div id="rejectLeaveModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.5); backdrop-filter:blur(4px); align-items:center; justify-content:center; z-index:1000;">
+        <div class="modal-box bg-white" style="padding:30px; border-radius:20px; width:450px; max-width:90%; position:relative; box-shadow:0 10px 25px rgba(0,0,0,0.1);">
+            <button type="button" class="close-btn" onclick="document.getElementById('rejectLeaveModal').style.display='none'" style="position:absolute; top:20px; right:20px; background:none; border:none; font-size:24px; cursor:pointer; color:#ef4444;">&times;</button>
+            <h2 style="color: #ef4444; font-size: 20px; font-weight: 700; margin-bottom: 20px;">Reject Leave Request</h2>
+            
+            <form method="POST" action="" onsubmit="if(currentRejectForm) { 
+                let topic = document.createElement('input'); topic.type='hidden'; topic.name='rejection_topic'; topic.value = this.rejection_topic.value; currentRejectForm.appendChild(topic);
+                let reason = document.createElement('input'); reason.type='hidden'; reason.name='rejection_reason'; reason.value = this.rejection_reason.value; currentRejectForm.appendChild(reason);
+                let act = document.createElement('input'); act.type='hidden'; act.name='action'; act.value='reject'; currentRejectForm.appendChild(act);
+                currentRejectForm.submit(); return false; 
+            }">
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Rejection Topic</label>
+                    <select name="rejection_topic" class="form-input" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1;" required>
+                        <option value="">-- Select a Topic --</option>
+                        <option value="Insufficient Leave Balance">Insufficient Leave Balance</option>
+                        <option value="High Workload / Team Shortage">High Workload / Team Shortage</option>
+                        <option value="Invalid Reason / Missing Document">Invalid Reason / Missing Document</option>
+                        <option value="Late Notice">Late Notice</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Description (Reason)</label>
+                    <textarea name="rejection_reason" class="form-input" rows="4" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; resize: none;" required placeholder="Please provide specific details..."></textarea>
+                </div>
+                
+                <button type="submit" class="btn btn-outline text-red-500" style="width: 100%; padding: 12px; border-radius: 8px; font-size: 15px; background: #fef2f2; border: 1px solid #fecaca; font-weight: bold;">Confirm Rejection</button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- View Description Modal -->
+    <div id="rejectionModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.5); backdrop-filter:blur(4px); align-items:center; justify-content:center; z-index:1000;">
+        <div class="modal-box bg-white" style="padding:30px; border-radius:20px; width:400px; max-width:90%; position:relative; box-shadow:0 10px 25px rgba(0,0,0,0.1);">
+            <button class="close-btn" onclick="document.getElementById('rejectionModal').style.display='none'" style="position:absolute; top:20px; right:20px; background:none; border:none; font-size:24px; cursor:pointer; color:#ef4444;">&times;</button>
+            <h2 style="color: #ef4444; font-size: 18px; font-weight: 700; margin-bottom: 15px;">Rejection Description</h2>
+            <div id="rejectionDescriptionText" style="font-size: 14px; color: #475569; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word; word-break: break-all; text-align: justify; max-height: 300px; overflow-y: auto; padding-right: 5px;"></div>
+        </div>
+    </div>
     <script src="assets/js/theme_toggle.js"></script>
 </body>
 </html>

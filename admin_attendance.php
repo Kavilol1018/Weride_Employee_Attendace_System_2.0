@@ -78,11 +78,13 @@ $days_in_month = cal_days_in_month(CAL_GREGORIAN, $selected_month, $selected_yea
 $employees = [];
 $emp_names = [];
 $all_leaders = [];
-$emp_query = mysqli_query($conn, "SELECT emp_id, name, employment_type, onboarding_date, group_leader_id FROM employees ORDER BY name ASC");
+$emp_query = mysqli_query($conn, "SELECT emp_id, name, employment_type, onboarding_date, group_leader_id, role FROM employees ORDER BY name ASC");
 if ($emp_query) {
     while ($row = mysqli_fetch_assoc($emp_query)) {
-        $employees[$row['emp_id']] = $row;
         $emp_names[$row['emp_id']] = $row['name'];
+        if (!in_array($row['role'], ['admin', 'hr'])) {
+            $employees[$row['emp_id']] = $row;
+        }
     }
     foreach ($employees as $emp) {
         if (!empty($emp['group_leader_id']) && isset($emp_names[$emp['group_leader_id']])) {
@@ -103,12 +105,14 @@ if ($att_query) {
 
 // Fetch Leave Requests (Approved only)
 $leaves = [];
-$leave_query = mysqli_query($conn, "SELECT emp_id, start_date, end_date, leave_type FROM leave_requests WHERE status = 'approved' AND (MONTH(start_date) = $selected_month OR MONTH(end_date) = $selected_month) AND YEAR(start_date) = $selected_year");
+$leave_query = mysqli_query($conn, "SELECT emp_id, start_date, end_date, leave_type, duration FROM leave_requests WHERE status = 'approved' AND (MONTH(start_date) = $selected_month OR MONTH(end_date) = $selected_month) AND YEAR(start_date) = $selected_year");
 if ($leave_query) {
     while ($row = mysqli_fetch_assoc($leave_query)) {
         $emp_id = $row['emp_id'];
         $start = strtotime($row['start_date']);
         $end = strtotime($row['end_date']);
+        $duration = (float)($row['duration'] ?? 1.0);
+        $is_half = ($duration == 0.5);
         
         for ($i = $start; $i <= $end; $i += 86400) {
             if (date('n', $i) == $selected_month) {
@@ -120,6 +124,15 @@ if ($leave_query) {
                 elseif (strpos($lt, 'UNPAID') !== false) $abbr = 'UPL';
                 elseif (strpos($lt, 'HOSPITAL') !== false) $abbr = 'HL';
                 else $abbr = 'L'; // Generic Leave
+                
+                if ($is_half && in_array($abbr, ['AL', 'SL'])) {
+                    $abbr = '0.5 ' . $abbr;
+                } elseif ($is_half && $abbr === 'UPL') {
+                    $abbr = '0.5UPL';
+                } elseif ($is_half) {
+                    $abbr = 'HD';
+                }
+                
                 $leaves[$emp_id][$day] = $abbr;
             }
         }
@@ -137,18 +150,34 @@ if ($ph_query) {
 
 // Map short codes to colors based on screenshot
 $color_map = [
-    'P' => '#f0fdf4', // Present (very light mint)
-    'WO' => '#e5e7eb', // Weekend (light gray)
-    'UPL' => '#bfdbfe', // Unpaid Leave (light blue)
-    'PH' => '#fef08a', // Public Holiday (yellow)
-    'AL' => '#fed7aa', // Annual Leave (light orange)
-    'SL' => '#bbf7d0', // Sick Leave (light green)
-    'HL' => '#e9d5ff', // Hospital Leave (light purple)
-    'A' => '#fca5a5', // Absent (light red)
-    'HD' => '#fde047', // Half Day (brighter yellow)
+    'P' => '#f0fdf4', // Present (keep as is)
+    'WO' => '#574A11', // Weekend 
+    'UPL' => '#2891A4', // Unpaid Leave 
+    'PH' => '#2D532B', // Public Holiday
+    'AL' => '#7131C6', // Annual Leave
+    'SL' => '#E88C22', // Sick Leave
+    'HL' => '#273656', // Hospital Leave
+    'A' => '#fca5a5', // Absent (keep as is)
+    'HD' => '#fde047', // Half Day (keep as is)
     '0.5' => '#fde047', // Half Day (numerical)
-    'EMERGENCY' => '#fbcfe8', // Emergency Leave (light pink)
-    'BLACK' => '#1e293b' // Before onboarding
+    '0.5 AL' => '#3C2068', // Half-day annual leave
+    '0.5 SL' => '#784911', // Half-day sick leave
+    '0.5UPL' => '#1D3E47', // Half-day unpaid leave
+    'EMERGENCY' => '#fbcfe8', // Emergency Leave (keep as is)
+    'BO' => '#e5e7eb' // Before onboarding
+];
+
+$text_color_map = [
+    'WO' => '#ffffff',
+    'UPL' => '#ffffff',
+    'PH' => '#ffffff',
+    'AL' => '#ffffff',
+    'SL' => '#ffffff',
+    'HL' => '#ffffff',
+    '0.5 AL' => '#ffffff',
+    '0.5 SL' => '#ffffff',
+    '0.5UPL' => '#ffffff',
+    'BO' => '#333333'
 ];
 
 ?>
@@ -208,30 +237,10 @@ $color_map = [
         
         .summary-header { background: #dcfce7 !important; color: #166534; }
         
-        /* Dark Mode Overrides */
-        body.dark-mode { background-color: #0f172a; color: #f8fafc; }
-        body.dark-mode .filters, body.dark-mode .table-container { background: #1e293b; border-color: #334155; }
-        body.dark-mode .header h1 { color: #f8fafc; }
-        body.dark-mode th, body.dark-mode td { border-color: #334155; }
-        body.dark-mode thead th { background: #334155; color: #f8fafc; }
-        body.dark-mode .sticky-col-1, body.dark-mode .sticky-col-2, body.dark-mode .sticky-col-3, body.dark-mode .sticky-col-4 { background: #1e293b; }
-        body.dark-mode thead th.sticky-col-1, body.dark-mode thead th.sticky-col-2, body.dark-mode thead th.sticky-col-3, body.dark-mode thead th.sticky-col-4 { background: #0f172a; }
-        body.dark-mode .summary-header { background: #064e3b !important; color: #d1fae5; }
-        body.dark-mode #importModal > div { background: #1e293b !important; color: #f8fafc; }
-        body.dark-mode #importModal h2 { color: #f8fafc !important; }
-        
-        body.dark-mode td[data-status="BLACK"] { background-color: #0f172a !important; }
-        body.dark-mode td[data-status="WO"], body.dark-mode td[data-status="PH"], body.dark-mode td[data-status="AL"] { background-color: #78350f !important; }
-        body.dark-mode td[data-status="UPL"] { background-color: #1e3a8a !important; }
-        body.dark-mode td[data-status="A"] { background-color: #7f1d1d !important; }
-        body.dark-mode td[data-status=""] { background-color: #000000 !important; }
-        
     </style>
-    <link rel="stylesheet" href="assets/css/dark_mode.css?v=<?php echo time(); ?>">
-    <script src="assets/js/theme_toggle.js"></script>
     <link rel="stylesheet" href="assets/css/global_fixes.css?v=<?php echo time(); ?>">
-    </head>
-<body class="<?php echo isset($_COOKIE['theme']) && $_COOKIE['theme'] === 'dark' ? 'dark-mode' : ''; ?>">
+</head>
+<body>
 
     <?php include 'sidebar.php'; ?>
 
@@ -342,7 +351,7 @@ $color_map = [
                             
                             // 1. Check before onboarding
                             if ($is_before_onboarding) {
-                                $status = 'BLACK';
+                                $status = 'BO';
                                 $before_onboarding_count++;
                             } 
                             // 2. Check manual overrides / existing logs
@@ -360,16 +369,31 @@ $color_map = [
                                 } elseif ($att_status == 'WO') {
                                     $status = 'WO';
                                     $weekend_count++;
+                                } elseif ($att_status == 'AL') {
+                                    $status = 'AL';
+                                    $annual_leave_count++;
+                                } elseif ($att_status == 'SL') {
+                                    $status = 'SL';
+                                    $sick_leave_count++;
+                                } elseif ($att_status == '0.5 AL') {
+                                    $status = '0.5 AL';
+                                    $present_count += 0.5;
+                                    $annual_leave_count += 0.5;
+                                } elseif ($att_status == '0.5 SL') {
+                                    $status = '0.5 SL';
+                                    $present_count += 0.5;
+                                    $sick_leave_count += 0.5;
+                                } elseif ($att_status == '0.5UPL') {
+                                    $status = '0.5UPL';
+                                    $present_count += 0.5;
                                 } elseif (in_array($att_status, ['HD', '0.5'])) {
                                     $status = $att_status;
                                     $present_count += 0.5;
-                                    $annual_leave_count += 0.5;
                                 } elseif ($att_status == 'EMERGENCY') {
                                     $status = 'EMERGENCY';
-                                    $present_count += 0.5;
-                                    $annual_leave_count += 0.5;
+                                    $emergency_leave_count++;
                                 } else {
-                                    $status = $att_status; // UPL, AL, etc. from override
+                                    $status = $att_status; // UPL, HL, etc. from override
                                 }
                             } 
                             // 3. Check Public Holidays from DB
@@ -427,10 +451,11 @@ $color_map = [
                         <?php for($d=1; $d<=$days_in_month; $d++): 
                             $st = $daily_status[$d];
                             $bg = isset($color_map[$st]) ? $color_map[$st] : '#ffffff';
-                            $text = $st === 'BLACK' ? '' : $st;
+                            $tc = isset($text_color_map[$st]) ? $text_color_map[$st] : '#333333';
+                            $text = $st;
                             $cell_date = sprintf("%04d-%02d-%02d", $selected_year, $selected_month, $d);
                         ?>
-                            <td class="editable-cell date-col" data-emp="<?= htmlspecialchars($emp_id) ?>" data-date="<?= $cell_date ?>" data-val="<?= $text ?>" data-status="<?= $st ?>" style="background-color: <?= $bg ?>; font-weight: 600; cursor: pointer; position: relative;">
+                            <td class="editable-cell date-col" data-emp="<?= htmlspecialchars($emp_id) ?>" data-date="<?= $cell_date ?>" data-val="<?= $text ?>" data-status="<?= $st ?>" style="background-color: <?= $bg ?>; color: <?= $tc ?>; font-weight: 600; cursor: pointer; position: relative;">
                                 <?= $text ?>
                             </td>
                         <?php endfor; ?>
@@ -445,8 +470,33 @@ $color_map = [
     <div id="importModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
         <div style="background:white; padding:24px; border-radius:12px; width:400px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
             <h2 class="text-slate-900" style="margin-top:0; ">Import Attendance Overrides</h2>
-            <p class="text-slate-500" style=" font-size:14px;">Upload a CSV file to override attendance statuses (e.g., mark bulk Public Holidays or UPL). The CSV must have headers: <strong>emp_id, date, status</strong> (Format: YYYY-MM-DD).</p>
+            <p class="text-slate-500" style=" font-size:14px;">Upload your monthly calendar CSV export to override the attendance records.</p>
             <form action="import_attendance.php" method="POST" enctype="multipart/form-data">
+                <div style="display: flex; gap: 15px; margin-top: 15px;">
+                    <div style="flex: 1;">
+                        <label style="display:block; font-weight:600; font-size:13px; margin-bottom:5px;">Month</label>
+                        <select name="month" required style="width:100%; padding:8px; border-radius:6px; border:1px solid #cbd5e1;">
+                            <?php
+                            for ($m=1; $m<=12; $m++) {
+                                $monthName = date('F', mktime(0, 0, 0, $m, 10));
+                                $selected = ($m == $selected_month) ? 'selected' : '';
+                                echo "<option value='$m' $selected>$monthName</option>";
+                            }
+                            ?>
+                        </select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="display:block; font-weight:600; font-size:13px; margin-bottom:5px;">Year</label>
+                        <select name="year" required style="width:100%; padding:8px; border-radius:6px; border:1px solid #cbd5e1;">
+                            <?php
+                            for ($y=$selected_year-1; $y<=$selected_year+2; $y++) {
+                                $selected = ($y == $selected_year) ? 'selected' : '';
+                                echo "<option value='$y' $selected>$y</option>";
+                            }
+                            ?>
+                        </select>
+                    </div>
+                </div>
                 <input type="file" name="csv_file" accept=".csv" required style="display:block; margin:20px 0; width:100%;">
                 <div style="display:flex; gap:10px; justify-content:flex-end;">
                     <button type="button" class="btn btn-outline" onclick="document.getElementById('importModal').style.display='none'">Cancel</button>
@@ -461,11 +511,12 @@ $color_map = [
     <script>
     document.addEventListener('DOMContentLoaded', () => {
         const colorMap = <?= json_encode($color_map) ?>;
+        const textColorMap = <?= json_encode($text_color_map) ?>;
         
         document.querySelectorAll('.editable-cell').forEach(cell => {
             cell.addEventListener('click', function() {
-                // If it's the black pre-onboarding cell, don't allow edit
-                if (this.dataset.val === '' && this.style.backgroundColor === 'rgb(15, 23, 42)') return;
+                // If it's the BO pre-onboarding cell, don't allow edit
+                if (this.dataset.status === 'BO') return;
                 
                 // If already editing, ignore
                 if (this.querySelector('select')) return;
@@ -491,7 +542,7 @@ $color_map = [
                 select.style.left = '0';
                 select.style.boxSizing = 'border-box';
                 
-                const options = ['', 'P', '0.5', 'A', 'WO', 'PH', 'AL', 'SL', 'UPL', 'HL'];
+                const options = ['', 'P', '0.5 AL', '0.5 SL', '0.5UPL', 'A', 'WO', 'PH', 'AL', 'SL', 'UPL', 'HL'];
                 options.forEach(opt => {
                     const option = document.createElement('option');
                     option.value = opt;
@@ -503,7 +554,7 @@ $color_map = [
                         option.style.color = '#000000';
                     } else if (colorMap[opt]) {
                         option.style.backgroundColor = colorMap[opt];
-                        option.style.color = '#000000'; // ensure text is readable on pastel bg
+                        option.style.color = textColorMap[opt] || '#000000';
                     }
                     
                     select.appendChild(option);
@@ -535,17 +586,9 @@ $color_map = [
                             // Note: To see math updates, user will need to refresh. 
                             // But background color can be updated locally.
                             let newBg = colorMap[newVal] || '#ffffff';
-                            if (document.body.classList.contains('dark-mode')) {
-                                if (newVal === 'WO' || newVal === 'PH' || newVal === 'AL') newBg = '#78350f';
-                                else if (newVal === 'UPL') newBg = '#1e3a8a';
-                                else if (newVal === 'A') newBg = '#7f1d1d';
-                                else if (newVal === 'SL' || newVal === 'P') newBg = '#14532d';
-                                else if (newVal === 'HL') newBg = '#4c1d95';
-                                else if (newVal === '0.5' || newVal === 'HD') newBg = '#854d0e';
-                                else if (newBg === '#f0fdf4' || newBg === '#ffffff') newBg = '#000000'; // Default clear/P in dark mode
-                            }
+                            let newTc = textColorMap[newVal] || '#333333';
                             this.style.backgroundColor = newBg;
-                            this.style.color = '#000000'; // Make text black for visibility on pastel
+                            this.style.color = newTc;
                         } else {
                             this.innerHTML = currentVal;
                             alert("Failed to save: " + (data.error || "Unknown error"));

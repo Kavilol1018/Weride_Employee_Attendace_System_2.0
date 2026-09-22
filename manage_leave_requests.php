@@ -19,44 +19,62 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['leave_action'])) {
     $end_date = isset($_POST['end_date']) && !empty($_POST['end_date']) ? mysqli_real_escape_string($conn, $_POST['end_date']) : $start_date;
 
     if ($action == 'approve') {
-        if ($role === 'gl') {
+        if (in_array($role, ['gl', 'tl'])) {
             mysqli_query($conn, "UPDATE leave_requests SET status = 'pending_hr' WHERE id = $leave_id");
             $status_message = "Leave request approved and forwarded to HR.";
         } else {
             mysqli_query($conn, "UPDATE leave_requests SET status = 'approved' WHERE id = $leave_id");
             
-            $start_dt = new DateTime($start_date);
-            $end_dt = new DateTime($end_date);
-            $interval = $start_dt->diff($end_dt);
-            $days = $interval->days + 1;
+            // Fetch the stored duration directly from the leave request (safely)
+            $lr_data_q = @mysqli_query($conn, "SELECT duration, start_date, end_date FROM leave_requests WHERE id = $leave_id");
+            $lr_data = $lr_data_q ? mysqli_fetch_assoc($lr_data_q) : null;
             
-            // Dynamic 0.5 day deduction logic based on exact timing
-            $lr_q = mysqli_query($conn, "SELECT start_time, end_time FROM leave_requests WHERE id = $leave_id");
-            if ($lr_q && $lr_d = mysqli_fetch_assoc($lr_q)) {
-                $l_st = $lr_d['start_time'];
-                $l_et = $lr_d['end_time'];
-                if ($days == 1 && !empty($l_st) && !empty($l_et)) {
-                    $st_ts = strtotime($l_st);
-                    $et_ts = strtotime($l_et);
-                    // 4.5 hours * 3600 seconds = 16200 seconds
-                    if ($et_ts > $st_ts && ($et_ts - $st_ts) <= 16200) {
-                        $days = 0.5;
-                    }
+            if ($lr_data && !empty($lr_data['duration']) && (float)$lr_data['duration'] > 0) {
+                $days = (float)$lr_data['duration'];
+            } else {
+                $fallback_start = $lr_data['start_date'] ?? $start_date;
+                $fallback_end = $lr_data['end_date'] ?? $end_date ?? $fallback_start;
+                
+                $start_dt = new DateTime($fallback_start);
+                $end_dt = new DateTime($fallback_end);
+                $days = 0;
+                $current_dt = clone $start_dt;
+                while ($current_dt <= $end_dt) {
+                    $dow = (int)$current_dt->format('w');
+                    if ($dow !== 0 && $dow !== 6) $days++; // Skip weekends
+                    $current_dt->modify('+1 day');
                 }
             }
-            
             $abbr = 'L';
             $lt = strtoupper($leave_type);
-            if (strpos($lt, 'HALF') !== false) { $abbr = 'HD'; $days = 0.5; }
-            elseif (strpos($lt, 'EMERGENCY') !== false) { $abbr = 'EMERGENCY'; $days = 0; }
+            $is_half = ($days == 0.5 || strpos($lt, 'HALF') !== false);
+            if ($is_half) { $days = 0.5; }
+            
+            if (strpos($lt, 'EMERGENCY') !== false) { $abbr = 'AL'; }
             elseif (strpos($lt, 'ANNUAL') !== false) { $abbr = 'AL'; }
             elseif (strpos($lt, 'SICK') !== false) { $abbr = 'SL'; }
             elseif (strpos($lt, 'UNPLANNED') !== false) { $abbr = 'UL'; }
+            elseif (strpos($lt, 'UNPAID') !== false) { $abbr = 'UPL'; }
+            elseif (strpos($lt, 'HOSPITALIZATION') !== false) { $abbr = 'HOSP'; }
+
+            if ($is_half && ($abbr === 'AL' || $abbr === 'SL')) {
+                $log_status = '0.5 ' . $abbr;
+            } elseif ($is_half && $abbr === 'UPL') {
+                $log_status = '0.5UPL';
+            } else {
+                $log_status = $is_half ? 'HD' : $abbr;
+            }
+
+            $start_dt = new DateTime($start_date);
+            $end_dt = new DateTime($end_date);
 
             $current_dt = clone $start_dt;
             while ($current_dt <= $end_dt) {
-                $date_str = $current_dt->format('Y-m-d');
-                mysqli_query($conn, "INSERT INTO attendance_logs (emp_id, date, status) VALUES ('$emp_id', '$date_str', '$abbr') ON DUPLICATE KEY UPDATE status = '$abbr'");
+                $day_of_week = (int)$current_dt->format('w'); // 0=Sun, 6=Sat
+                if ($day_of_week !== 0 && $day_of_week !== 6) {
+                    $date_str = $current_dt->format('Y-m-d');
+                    mysqli_query($conn, "INSERT INTO attendance_logs (emp_id, date, status) VALUES ('$emp_id', '$date_str', '$log_status') ON DUPLICATE KEY UPDATE status = '$log_status'");
+                }
                 $current_dt->modify('+1 day');
             }
 
@@ -70,17 +88,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['leave_action'])) {
                 if ($emp_type !== 'intern') {
                     mysqli_query($conn, "UPDATE employees SET sick_leave_balance = GREATEST(0, sick_leave_balance - $days) WHERE emp_id = '$emp_id'");
                 }
+            } elseif ($abbr === 'UPL') {
+                mysqli_query($conn, "UPDATE employees SET unpaid_leave_balance = unpaid_leave_balance + $days WHERE emp_id = '$emp_id'");
+            } elseif ($abbr === 'HOSP') {
+                if ($emp_type !== 'intern') {
+                    mysqli_query($conn, "UPDATE employees SET hospitalization_leave_balance = GREATEST(0, hospitalization_leave_balance - $days) WHERE emp_id = '$emp_id'");
+                }
             }
             $status_message = "Leave request approved successfully.";
             $msg = "Your leave request ($leave_type for $start_date) was approved.";
             mysqli_query($conn, "INSERT INTO employee_notifications (emp_id, message) VALUES ('$emp_id', '$msg')");
         }
     } elseif ($action == 'reject') {
+        $rejection_topic = mysqli_real_escape_string($conn, $_POST['rejection_topic'] ?? 'Other');
         $rejection_reason = mysqli_real_escape_string($conn, $_POST['rejection_reason'] ?? '');
-        mysqli_query($conn, "UPDATE leave_requests SET status = 'rejected', rejection_reason = '$rejection_reason' WHERE id = $leave_id");
+        mysqli_query($conn, "UPDATE leave_requests SET status = 'rejected', rejection_topic = '$rejection_topic', rejection_reason = '$rejection_reason' WHERE id = $leave_id");
         $status_message = "Leave request rejected.";
         
-        $msg = "Your leave request ($leave_type for $start_date) was rejected. Reason: $rejection_reason";
+        $msg = "Your leave request ($leave_type for $start_date) was rejected. Topic: $rejection_topic. Reason: $rejection_reason";
         mysqli_query($conn, "INSERT INTO employee_notifications (emp_id, message) VALUES ('$emp_id', '$msg')");
     }
 }
@@ -96,7 +121,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['force_action'])) {
     $reason = mysqli_real_escape_string($conn, $_POST['reason']);
     $duration = isset($_POST['duration']) ? (float)$_POST['duration'] : 1.0;
     
-    $emp_check = mysqli_query($conn, "SELECT id, annual_leave_balance, sick_leave_balance, employment_type FROM employees WHERE emp_id = '$emp_id'");
+    $emp_check = mysqli_query($conn, "SELECT id, name, annual_leave_balance, sick_leave_balance, employment_type FROM employees WHERE emp_id = '$emp_id'");
     if ($emp_row = mysqli_fetch_assoc($emp_check)) {
         if ($force_type == 'leave') {
             $leave_type = mysqli_real_escape_string($conn, $_POST['force_leave_type']);
@@ -109,13 +134,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['force_action'])) {
                 $error = "Interns are only eligible for Unpaid Leave.";
             }
             if ($leave_type === 'Annual Leave' && empty($error)) {
-                $start_dt = new DateTime($start_date);
-                $fourteen_days_from_now = new DateTime();
-                $fourteen_days_from_now->setTime(0, 0, 0);
-                $fourteen_days_from_now->modify('+14 days');
-                if ($start_dt < $fourteen_days_from_now) {
-                    $error = "Annual Leave must be applied at least 14 days in advance.";
-                } elseif ($duration > $al_bal) {
+                // 14-days restriction removed for force application on behalf
+                if ($duration > $al_bal) {
                     $error = "Cannot apply for more Annual Leave days ($duration) than employee's remaining balance ($al_bal).";
                 }
             } elseif ($leave_type === 'Sick Leave' && empty($error) && $duration > $sl_bal) {
@@ -131,7 +151,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['force_action'])) {
                 if (in_array($ext, $allowed_ext)) {
                     $upload_dir = 'uploads/medical_certificates/';
                     if (!is_dir($upload_dir)) { mkdir($upload_dir, 0777, true); }
-                    $new_filename = $emp_id . '_' . time() . '.' . $ext;
+                    $emp_name = $emp_row['name'];
+                    $safe_name = preg_replace('/[^A-Za-z0-9]/', '', $emp_name);
+                    $new_filename = $safe_name . '_' . $start_date . '_' . $end_date . '.' . $ext;
                     $dest = $upload_dir . $new_filename;
                     if (move_uploaded_file($_FILES['medical_certificate']['tmp_name'], $dest)) {
                         $mc_path = $dest;
@@ -156,31 +178,55 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['force_action'])) {
                 
                 $lt = strtoupper($leave_type);
                 $abbr = 'L';
-                if (strpos($lt, 'HALF') !== false) { $abbr = 'HD'; }
-                elseif (strpos($lt, 'ANNUAL') !== false) { $abbr = 'AL'; }
+                $is_half = ($duration == 0.5 || strpos($lt, 'HALF') !== false);
+                if ($is_half) { $duration = 0.5; }
+                
+                if (strpos($lt, 'ANNUAL') !== false) { $abbr = 'AL'; }
                 elseif (strpos($lt, 'SICK') !== false) { $abbr = 'SL'; }
                 elseif (strpos($lt, 'UNPAID') !== false) { $abbr = 'UPL'; }
-                elseif (strpos($lt, 'EMERGENCY') !== false) { $abbr = 'EMERGENCY'; }
+                elseif (strpos($lt, 'EMERGENCY') !== false) { $abbr = 'AL'; }
+                elseif (strpos($lt, 'HOSPITALIZATION') !== false) { $abbr = 'HOSP'; }
                 
-                mysqli_query($conn, "INSERT INTO leave_requests (emp_id, leave_type, start_date, start_time, end_date, end_time, duration, reason, application_date, mc_attachment, status) VALUES ('$emp_id', '$leave_type', '$start_date', $start_time_sql, '$end_date', $end_time_sql, '$duration', '$reason', CURDATE(), '$mc_path', 'approved')");
-                
-                // Loop through each day and add attendance logs
-                $start_dt = new DateTime($start_date);
-                $end_dt = new DateTime($end_date);
-                $current_dt = clone $start_dt;
-                while ($current_dt <= $end_dt) {
-                    $date_str = $current_dt->format('Y-m-d');
-                    mysqli_query($conn, "INSERT INTO attendance_logs (emp_id, date, status) VALUES ('$emp_id', '$date_str', '$abbr') ON DUPLICATE KEY UPDATE status = '$abbr'");
-                    $current_dt->modify('+1 day');
+                if ($is_half && ($abbr === 'AL' || $abbr === 'SL')) {
+                    $log_status = '0.5 ' . $abbr;
+                } elseif ($is_half && $abbr === 'UPL') {
+                    $log_status = '0.5UPL';
+                } else {
+                    $log_status = $is_half ? 'HD' : $abbr;
                 }
                 
-                if ($abbr === 'AL') {
-                    mysqli_query($conn, "UPDATE employees SET annual_leave_balance = GREATEST(0, annual_leave_balance - $duration) WHERE emp_id = '$emp_id'");
-                } elseif ($abbr === 'SL') {
-                    mysqli_query($conn, "UPDATE employees SET sick_leave_balance = GREATEST(0, sick_leave_balance - $duration) WHERE emp_id = '$emp_id'");
-                }
+                $initial_status = in_array($_SESSION['role'], ['gl', 'tl']) ? 'pending_hr' : 'approved';
+
+                mysqli_query($conn, "INSERT INTO leave_requests (emp_id, leave_type, start_date, start_time, end_date, end_time, duration, reason, application_date, mc_attachment, status) VALUES ('$emp_id', '$leave_type', '$start_date', $start_time_sql, '$end_date', $end_time_sql, '$duration', '$reason', CURDATE(), '$mc_path', '$initial_status')");
                 
-                $status_message = "Leave applied on behalf successfully.";
+                if ($initial_status === 'approved') {
+                    // Loop through each day and add attendance logs
+                    $start_dt = new DateTime($start_date);
+                    $end_dt = new DateTime($end_date);
+                    $current_dt = clone $start_dt;
+                    while ($current_dt <= $end_dt) {
+                        $day_of_week = (int)$current_dt->format('w'); // 0=Sun, 6=Sat
+                        if ($day_of_week !== 0 && $day_of_week !== 6) {
+                            $date_str = $current_dt->format('Y-m-d');
+                            mysqli_query($conn, "INSERT INTO attendance_logs (emp_id, date, status) VALUES ('$emp_id', '$date_str', '$log_status') ON DUPLICATE KEY UPDATE status = '$log_status'");
+                        }
+                        $current_dt->modify('+1 day');
+                    }
+                    
+                    if ($abbr === 'AL') {
+                        mysqli_query($conn, "UPDATE employees SET annual_leave_balance = GREATEST(0, annual_leave_balance - $duration) WHERE emp_id = '$emp_id'");
+                    } elseif ($abbr === 'SL') {
+                        mysqli_query($conn, "UPDATE employees SET sick_leave_balance = GREATEST(0, sick_leave_balance - $duration) WHERE emp_id = '$emp_id'");
+                    } elseif ($abbr === 'UPL') {
+                        mysqli_query($conn, "UPDATE employees SET unpaid_leave_balance = unpaid_leave_balance + $duration WHERE emp_id = '$emp_id'");
+                    } elseif ($abbr === 'HOSP') {
+                        mysqli_query($conn, "UPDATE employees SET hospitalization_leave_balance = GREATEST(0, hospitalization_leave_balance - $duration) WHERE emp_id = '$emp_id'");
+                    }
+                    
+                    $status_message = "Leave applied on behalf successfully and approved.";
+                } else {
+                    $status_message = "Leave applied on behalf successfully and forwarded to HR.";
+                }
             } else {
                 $status_message = $error;
             }
@@ -193,7 +239,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['force_action'])) {
 // FETCH LEAVE REQUESTS
 $where_clauses = ["1=1"];
 $current_emp_id = $_SESSION['emp_id'] ?? '';
-if ($role === 'gl') {
+if (in_array($role, ['gl', 'tl'])) {
     $where_clauses[] = "e.group_leader_id = '$current_emp_id'";
 } elseif ($role === 'hr') {
     $where_clauses[] = "l.status != 'pending'";
@@ -211,12 +257,25 @@ $leaves_result = mysqli_query($conn, $leaves_sql);
 
 // FETCH EMPLOYEES FOR DROPDOWN
 $dropdown_where = "1=1";
-if ($role === 'gl') {
+if (in_array($role, ['gl', 'tl'])) {
     $dropdown_where = "group_leader_id = '$current_emp_id'";
 }
-$emp_dropdown_sql = "SELECT emp_id, name FROM employees WHERE $dropdown_where ORDER BY name ASC";
+$emp_dropdown_sql = "SELECT emp_id, name, annual_leave_balance, sick_leave_balance, employment_type FROM employees WHERE $dropdown_where ORDER BY name ASC";
 $emp_dropdown_res = mysqli_query($conn, $emp_dropdown_sql);
 
+// PREPARE EMPLOYEE DATA FOR JS
+$employee_data_js = [];
+if ($emp_dropdown_res) {
+    mysqli_data_seek($emp_dropdown_res, 0);
+    while ($e = mysqli_fetch_assoc($emp_dropdown_res)) {
+        $employee_data_js[$e['emp_id']] = [
+            'alBal' => (float)($e['annual_leave_balance'] ?? 0),
+            'slBal' => (float)($e['sick_leave_balance'] ?? 0),
+            'type' => strtolower($e['employment_type'])
+        ];
+    }
+    mysqli_data_seek($emp_dropdown_res, 0); // Reset pointer for dropdown HTML loop
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -321,7 +380,7 @@ $emp_dropdown_res = mysqli_query($conn, $emp_dropdown_sql);
                                     <td><b style="font-size: 15px;"><?php echo htmlspecialchars($row['name']); ?></b><br><span style="font-weight: 600; font-size: 12px;" class="text-muted">#<?php echo htmlspecialchars($row['emp_id']); ?></span></td>
                                     <td><span style="font-weight:700;" class="text-muted"><?php echo htmlspecialchars($row['leave_type']); ?></span></td>
                                     <td style="font-weight: 600;" class="text-muted"><?php echo date('d M Y', strtotime($row['start_date'])); ?> to <?php echo date('d M Y', strtotime($row['end_date'])); ?></td>
-                                    <td style="font-weight: 600;" class="text-muted"><?php echo htmlspecialchars($row['half_day_type'] ?? 'N/A'); ?></td>
+                                    <td style="font-weight: 600;" class="text-muted"><?php echo (isset($row['duration']) && (float)$row['duration'] == 0.5) ? 'Yes' : 'N/A'; ?></td>
                                     <td>
                                         <?php if (!empty($row['mc_attachment'])): ?>
                                             <a href="<?php echo htmlspecialchars($row['mc_attachment']); ?>" target="_blank" style="background: #eff6ff; color:#3b82f6; text-decoration:none; padding: 4px 10px; border-radius: 6px; font-size:12px; font-weight:700;">View File</a>
@@ -332,12 +391,15 @@ $emp_dropdown_res = mysqli_query($conn, $emp_dropdown_sql);
                                     <td class="text-muted"><?php echo htmlspecialchars($row['reason']); ?></td>
                                     <td>
                                         <span class="badge bg-<?php echo strtolower($row['status']); ?>"><?php echo strtoupper($row['status']); ?></span>
-                                        <?php if ($row['status'] === 'rejected' && !empty($row['rejection_reason'])): ?>
-                                            <div style="font-size: 11px; color: #ef4444; margin-top: 4px; line-height: 1.2;">Reason: <?= htmlspecialchars($row['rejection_reason']) ?></div>
+                                        <?php if ($row['status'] === 'rejected' && !empty($row['rejection_topic'])): ?>
+                                            <div style="font-size: 11px; color: #ef4444; margin-top: 4px; line-height: 1.2; font-weight: 600;">Rejection Topic: <?= htmlspecialchars($row['rejection_topic']) ?></div>
+                                            <?php if (!empty($row['rejection_reason'])): ?>
+                                                <a href="javascript:void(0)" onclick="viewRejectionReason(`<?= htmlspecialchars(addslashes($row['rejection_reason'])) ?>`)" style="color: #dc2626; text-decoration: underline; font-size: 10px;">View Description</a>
+                                            <?php endif; ?>
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <?php if (($role === 'gl' && $row['status'] === 'pending') || ($role === 'hr' && $row['status'] === 'pending_hr') || (in_array($role, ['admin', 'tl']) && in_array($row['status'], ['pending', 'pending_hr']))): ?>
+                                        <?php if ((in_array($role, ['gl', 'tl']) && $row['status'] === 'pending') || ($role === 'hr' && $row['status'] === 'pending_hr') || ($role === 'admin' && in_array($row['status'], ['pending', 'pending_hr']))): ?>
                                             <form method="POST" action="" style="display:inline;">
                                                 <input type="hidden" name="leave_action" value="1">
                                                 <input type="hidden" name="leave_id" value="<?php echo $row['id']; ?>">
@@ -346,8 +408,7 @@ $emp_dropdown_res = mysqli_query($conn, $emp_dropdown_sql);
                                                 <input type="hidden" name="start_date" value="<?php echo $row['start_date']; ?>">
                                                 <input type="hidden" name="end_date" value="<?php echo $row['end_date']; ?>">
                                                 <button type="submit" name="action" value="approve" class="btn btn-approve">Approve</button>
-                                                <input type="hidden" name="rejection_reason" value="">
-                                                <button type="button" class="btn btn-reject" onclick="let r = prompt('Please provide a reason for rejection:'); if(r){ this.previousElementSibling.value = r; this.form.submit(); }">Reject</button>
+                                                <button type="button" class="btn btn-reject" onclick="openRejectModal('<?php echo $row['id']; ?>', '<?php echo $row['emp_id']; ?>', '<?php echo $row['leave_type']; ?>', '<?php echo $row['start_date']; ?>', '<?php echo $row['end_date']; ?>')">Reject</button>
                                             </form>
                                         <?php else: ?>
                                             <span style="color: #94a3b8; font-size: 13px; font-weight: 600;">Processed</span>
@@ -382,7 +443,7 @@ $emp_dropdown_res = mysqli_query($conn, $emp_dropdown_sql);
                     <!-- Row 1: Select Employee & Application Date -->
                     <div>
                         <label class="text-slate-900" style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px;"><span class="text-red-500">*</span> Select Employee</label>
-                        <select name="force_emp_id" required style="width: 100%; padding: 10px 15px; border: 1px solid #fbbf24; border-radius: 8px; font-size: 14px; outline: none; background: white; color: #334155;">
+                        <select name="force_emp_id" required onchange="toggleLeaveModalFields('emp')" style="width: 100%; padding: 10px 15px; border: 1px solid #fbbf24; border-radius: 8px; font-size: 14px; outline: none; background: white; color: #334155;">
                             <option value="" disabled selected>-- Select an employee --</option>
                             <?php 
                             if ($emp_dropdown_res) {
@@ -407,6 +468,7 @@ $emp_dropdown_res = mysqli_query($conn, $emp_dropdown_sql);
                             <option value="Annual Leave">Annual Leave</option>
                             <option value="Sick Leave">Sick Leave</option>
                             <option value="Unpaid Leave">Unpaid Leave</option>
+                            <option value="Hospitalization Leave">Hospitalization Leave</option>
                             <option value="Emergency Leave">Emergency Leave</option>
                         </select>
                     </div>
@@ -445,9 +507,9 @@ $emp_dropdown_res = mysqli_query($conn, $emp_dropdown_sql);
                     <div id="modal_mc_upload_group" style="grid-column: 1 / -1;">
                         <label class="text-slate-500" style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 4px;">Supporting Document</label>
                         <p style="font-size: 11px; color: #94a3b8; margin-bottom: 8px;">Employees applying for sick leave are required to submit a valid Medical Certificate (MC).</p>
-                        <div class="bg-white" style="border: 1px dashed #fbbf24; border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; position: relative;">
+                        <div class="bg-white" style="border: 1px dashed #fbbf24; border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; position: relative;" ondragover="event.preventDefault();" ondrop="event.preventDefault(); this.querySelector('input').files = event.dataTransfer.files; this.querySelector('input').dispatchEvent(new Event('change'));">
                             <span class="text-amber-600" style="font-size: 13px; font-weight: 600;">Paste or drag files here (or click to upload)</span>
-                            <input type="file" name="medical_certificate" accept=".jpg,.jpeg,.png,.pdf" style="position: absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer;">
+                            <input type="file" name="medical_certificate" accept=".jpg,.jpeg,.png,.pdf" style="position: absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; z-index: 10;" onchange="this.previousElementSibling.textContent = this.files[0] ? this.files[0].name : 'Paste or drag files here (or click to upload)';">
                         </div>
                     </div>
                 </div>
@@ -460,70 +522,125 @@ $emp_dropdown_res = mysqli_query($conn, $emp_dropdown_sql);
     <!-- Flatpickr JS -->
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
-    function toggleLeaveModalFields(source = null) {
-        const type = document.getElementById('modal_leave_type').value;
-        const endGroup = document.getElementById('modal_end_date_group');
-        const endInput = document.getElementById('modal_end_date');
-        const durationInput = document.getElementById('modal_duration');
-        const startTimeInput = document.getElementById('modal_start_time');
-        const endTimeInput = document.getElementById('modal_end_time');
-        const startDateInput = document.getElementById('modal_start_date');
+        const employeeData = <?php echo json_encode($employee_data_js); ?>;
+        
+        function toggleLeaveModalFields(source = null) {
+            const type = document.querySelector('select[name="force_leave_type"]').value;
+            const empId = document.querySelector('select[name="force_emp_id"]').value;
+            
+            const startGroup = document.getElementById('modal_start_date_group');
+            const endGroup = document.getElementById('modal_end_date_group');
+            const timeGroup = document.getElementById('modal_time_group');
+            const durationGroup = document.getElementById('modal_duration_group');
+            
+            const startDateInput = document.getElementById('modal_start_date');
+            const endInput = document.getElementById('modal_end_date');
+            const startTimeInput = document.getElementById('modal_start_time');
+            const endTimeInput = document.getElementById('modal_end_time');
+            const durationInput = document.getElementById('modal_duration');
+            
+            let alBal = 0, slBal = 0, empType = 'full_time';
+            if (empId && employeeData[empId]) {
+                alBal = employeeData[empId].alBal;
+                slBal = employeeData[empId].slBal;
+                empType = employeeData[empId].type;
+            }
 
-        endGroup.style.display = 'block';
-        endInput.required = true;
-
-        if (type === 'Emergency Leave' || parseFloat(durationInput.value) <= 1) {
-            endGroup.style.display = 'none';
-            endInput.required = false;
-        }
-
-        if (type === 'Annual Leave') {
-            let d = new Date();
-            d.setDate(d.getDate() + 14);
-            let minDateStr = d.toISOString().split('T')[0];
-            if (startDateInput) startDateInput.min = minDateStr;
-            if (endInput) endInput.min = minDateStr;
-        } else {
-            if (startDateInput) startDateInput.removeAttribute('min');
-            if (endInput) endInput.removeAttribute('min');
-        }
-
-        // Automate Time and Duration
-        if (source === 'type') {
-            if (type === 'Annual Leave' || type === 'Sick Leave' || type === 'Unpaid Leave') {
-                startTimeInput.value = '09:00';
-                endTimeInput.value = '18:00';
-                if (startDateInput && startDateInput.value) {
-                    if (typeof calculateDuration === 'function') calculateDuration();
+            // Disable options if no balance
+            const typeSelect = document.getElementById('modal_leave_type');
+            const alOption = typeSelect.querySelector('option[value="Annual Leave"]');
+            const slOption = typeSelect.querySelector('option[value="Sick Leave"]');
+            const elOption = typeSelect.querySelector('option[value="Emergency Leave"]');
+            
+            if (alOption) {
+                if (alBal <= 0 || empType === 'intern') {
+                    alOption.disabled = true;
+                    alOption.textContent = empType === 'intern' ? 'Annual Leave (Not eligible)' : 'Annual Leave (0 balance)';
+                    if (type === 'Annual Leave') typeSelect.value = '';
                 } else {
-                    durationInput.value = '1';
+                    alOption.disabled = false;
+                    alOption.textContent = 'Annual Leave';
                 }
+            }
+            if (elOption) {
+                if (alBal <= 0 || empType === 'intern') {
+                    elOption.disabled = true;
+                    elOption.textContent = empType === 'intern' ? 'Emergency Leave (Not eligible)' : 'Emergency Leave (0 balance)';
+                    if (type === 'Emergency Leave') typeSelect.value = '';
+                } else {
+                    elOption.disabled = false;
+                    elOption.textContent = 'Emergency Leave';
+                }
+            }
+            if (slOption) {
+                if (slBal <= 0 || empType === 'intern') {
+                    slOption.disabled = true;
+                    slOption.textContent = empType === 'intern' ? 'Sick Leave (Not eligible)' : 'Sick Leave (0 balance)';
+                    if (type === 'Sick Leave') typeSelect.value = '';
+                } else {
+                    slOption.disabled = false;
+                    slOption.textContent = 'Sick Leave';
+                }
+            }
+
+            const currentType = typeSelect.value;
+
+            endGroup.style.display = 'block';
+            endInput.required = true;
+            
+            if (currentType === 'Annual Leave' || currentType === 'Emergency Leave') {
+                durationInput.max = alBal;
+                durationInput.min = "0.5";
+            } else if (currentType === 'Sick Leave') {
+                durationInput.max = slBal;
+                durationInput.min = "0.5";
             } else {
-                startTimeInput.value = '';
-                endTimeInput.value = '';
-                durationInput.value = '';
+                durationInput.removeAttribute('max');
+                durationInput.removeAttribute('min');
+            }
+
+            if (currentType === 'Emergency Leave' || parseFloat(durationInput.value) <= 1) {
+                endGroup.style.display = 'none';
+                endInput.required = false;
+            }
+
+            if (currentType === 'Annual Leave') {
+                let d = new Date();
+                d.setDate(d.getDate() + 14);
+                let minDateStr = d.toISOString().split('T')[0];
+                if (startDateInput) startDateInput.min = minDateStr;
+                if (endInput) endInput.min = minDateStr;
+            } else {
+                if (startDateInput) startDateInput.removeAttribute('min');
+                if (endInput) endInput.removeAttribute('min');
+            }
+
+            // Automate Time and Duration
+            if (source === 'type' || source === 'emp') {
+                if (currentType === 'Annual Leave' || currentType === 'Sick Leave' || currentType === 'Unpaid Leave') {
+                    startTimeInput.value = '09:00';
+                    endTimeInput.value = '18:00';
+                    if (startDateInput && startDateInput.value) {
+                        if (typeof calculateDuration === 'function') calculateDuration();
+                    } else {
+                        durationInput.value = '1';
+                    }
+                } else {
+                    startTimeInput.value = '';
+                    endTimeInput.value = '';
+                    durationInput.value = '';
+                }
             }
         }
-    }
-        
         // Flatpickr Initialization
-        const publicHolidays = [
-            '2026-01-01', // New Year's Day
-            '2026-01-28', // Thaipusam
-            '2026-02-12', // Chinese New Year (Day 1)
-            '2026-02-13', // Chinese New Year (Day 2)
-            '2026-03-20', // Hari Raya Aidilfitri (Day 1)
-            '2026-03-21', // Hari Raya Aidilfitri (Day 2)
-            '2026-05-01', // Labour Day
-            '2026-05-24', // Wesak Day
-            '2026-05-27', // Hari Raya Haji
-            '2026-06-06', // Agong's Birthday
-            '2026-07-07', // Awal Muharram
-            '2026-08-31', // Merdeka Day
-            '2026-09-16', // Malaysia Day
-            '2026-11-08', // Deepavali
-            '2026-12-25'  // Christmas
-        ];
+        const publicHolidays = <?php
+            $ph_result = mysqli_query($conn, "SELECT holiday_date FROM public_holidays ORDER BY holiday_date ASC");
+            $ph_dates = [];
+            while ($ph_row = mysqli_fetch_assoc($ph_result)) {
+                $ph_dates[] = $ph_row['holiday_date'];
+            }
+            echo json_encode($ph_dates);
+        ?>;
 
         function calculateDuration() {
             const start = document.getElementById('modal_start_date').value;
@@ -559,7 +676,14 @@ $emp_dropdown_res = mysqli_query($conn, $emp_dropdown_sql);
                 current.setDate(current.getDate() + 1);
             }
             
-            durationInput.value = days;
+            if (days === 1 && durationInput.value === '0.5') {
+                // User explicitly requested half day on a single date, do not overwrite
+            } else {
+                durationInput.value = days;
+            }
+            
+            // Trigger the toggle to ensure UI responds to the updated duration if needed
+            toggleLeaveModalFields('duration');
         }
 
         const fpConfig = {
@@ -584,7 +708,68 @@ $emp_dropdown_res = mysqli_query($conn, $emp_dropdown_sql);
 
         flatpickr("#modal_start_date", fpConfig);
         flatpickr("#modal_end_date", fpConfig);
-    </script>
+        </script>
+        
+        <!-- Reject Leave Modal -->
+        <div id="rejectLeaveModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.5); backdrop-filter:blur(4px); align-items:center; justify-content:center; z-index:1000;">
+            <div class="modal-box bg-white" style="padding:30px; border-radius:20px; width:450px; max-width:90%; position:relative; box-shadow:0 10px 25px rgba(0,0,0,0.1);">
+                <button type="button" class="close-btn" onclick="document.getElementById('rejectLeaveModal').style.display='none'" style="position:absolute; top:20px; right:20px; background:none; border:none; font-size:24px; cursor:pointer; color:#ef4444;">&times;</button>
+                <h2 style="color: #ef4444; font-size: 20px; font-weight: 700; margin-bottom: 20px;">Reject Leave Request</h2>
+                
+                <form method="POST" action="">
+                    <input type="hidden" name="leave_action" value="1">
+                    <input type="hidden" name="action" value="reject">
+                    <input type="hidden" name="leave_id" id="rej_leave_id" value="">
+                    <input type="hidden" name="emp_id" id="rej_emp_id" value="">
+                    <input type="hidden" name="leave_type" id="rej_leave_type" value="">
+                    <input type="hidden" name="start_date" id="rej_start_date" value="">
+                    <input type="hidden" name="end_date" id="rej_end_date" value="">
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Rejection Topic</label>
+                        <select name="rejection_topic" class="form-input" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1;" required>
+                            <option value="">-- Select a Topic --</option>
+                            <option value="Insufficient Leave Balance">Insufficient Leave Balance</option>
+                            <option value="High Workload / Team Shortage">High Workload / Team Shortage</option>
+                            <option value="Invalid Reason / Missing Document">Invalid Reason / Missing Document</option>
+                            <option value="Late Notice">Late Notice</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Description (Reason)</label>
+                        <textarea name="rejection_reason" class="form-input" rows="4" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; resize: none;" required placeholder="Please provide specific details..."></textarea>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-reject" style="width: 100%; padding: 12px; border-radius: 8px; font-size: 15px;">Confirm Rejection</button>
+                </form>
+            </div>
+        </div>
 
+        <script>
+            function openRejectModal(leaveId, empId, leaveType, startDate, endDate) {
+                document.getElementById('rej_leave_id').value = leaveId;
+                document.getElementById('rej_emp_id').value = empId;
+                document.getElementById('rej_leave_type').value = leaveType;
+                document.getElementById('rej_start_date').value = startDate;
+                document.getElementById('rej_end_date').value = endDate;
+                document.getElementById('rejectLeaveModal').style.display = 'flex';
+            }
+        </script>
+        <div id="rejectionModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.5); backdrop-filter:blur(4px); align-items:center; justify-content:center; z-index:1000;">
+        <div class="modal-box bg-white" style="padding:30px; border-radius:20px; width:400px; max-width:90%; position:relative; box-shadow:0 10px 25px rgba(0,0,0,0.1);">
+            <button class="close-btn" onclick="document.getElementById('rejectionModal').style.display='none'" style="position:absolute; top:20px; right:20px; background:none; border:none; font-size:24px; cursor:pointer; color:#ef4444;">&times;</button>
+              <h2 style="color: #ef4444; font-size: 18px; font-weight: 700; margin-bottom: 15px;">Rejection Description</h2>
+              <div id="rejectionDescriptionText" style="font-size: 14px; color: #475569; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word; word-break: break-all; text-align: justify; max-height: 300px; overflow-y: auto; padding-right: 5px;"></div>
+        </div>
+    </div>
+    
+    <script>
+        function viewRejectionReason(reason) {
+            document.getElementById('rejectionDescriptionText').innerText = reason;
+            document.getElementById('rejectionModal').style.display = 'flex';
+        }
+    </script>
 </body>
 </html>

@@ -68,6 +68,13 @@ try {
                 
             mysqli_query($conn, $update_sql);
             
+            // Insert system alert
+            $employee_name_sql = mysqli_query($conn, "SELECT name FROM employees WHERE emp_id = '$emp_id'");
+            $emp_name = ($employee_name_sql && mysqli_num_rows($employee_name_sql) > 0) ? mysqli_fetch_assoc($employee_name_sql)['name'] : $emp_id;
+            
+            $alert_msg = mysqli_real_escape_string($conn, "$emp_name ($emp_id) edited a $table record.");
+            mysqli_query($conn, "INSERT INTO system_alerts (message) VALUES ('$alert_msg')");
+            
             header("Location: " . $return_url . "?msg=" . urlencode("Record updated successfully."));
             exit();
         } else {

@@ -20,12 +20,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (mysqli_num_rows($result) > 0) {
         $row = mysqli_fetch_assoc($result);
 
-        // Check Lockout
-        if ($row['lockout_time'] && strtotime($row['lockout_time']) > time()) {
-            $remaining = ceil((strtotime($row['lockout_time']) - time()) / 60);
-            $error = "Account locked due to too many failed attempts. Try again in $remaining minutes.";
-        } else {
-            if (password_verify($password, $row['password'])) {
+        if (password_verify($password, $row['password'])) {
                 // Reset lockout counters on success
                 mysqli_query($conn, "UPDATE employees SET login_attempts = 0, lockout_time = NULL WHERE id = {$row['id']}");
                 
@@ -59,20 +54,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 }
                 exit();
             } else {
-                $attempts = $row['login_attempts'] + 1;
-                if ($attempts >= 5) {
-                    mysqli_query($conn, "UPDATE employees SET login_attempts = $attempts, lockout_time = DATE_ADD(NOW(), INTERVAL 15 MINUTE) WHERE id = {$row['id']}");
-                    $error = "Account locked for 15 minutes due to 5 failed login attempts.";
-                } else {
-                    mysqli_query($conn, "UPDATE employees SET login_attempts = $attempts WHERE id = {$row['id']}");
-                    $error = "Invalid password. Attempt $attempts of 5.";
-                }
+                $error = "Invalid password.";
                 
                 // Log failed access
                 $ip_address = $_SERVER['REMOTE_ADDR'];
                 mysqli_query($conn, "INSERT INTO access_logs (emp_id, login_time, ip_address, status) VALUES ('{$row['emp_id']}', NOW(), '$ip_address', 'Failed')");
             }
-        }
     } else {
         $error = "No user found with that Employee ID or WeLabel ID.";
     }

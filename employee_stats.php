@@ -29,7 +29,7 @@ $early_count = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FR
 
 $weekly_hours_res = mysqli_fetch_assoc(mysqli_query($conn, "SELECT SUM(work_hours) as total_hrs FROM attendance_logs WHERE emp_id = '$current_employee_id' AND WEEK(date, 1) = WEEK(CURDATE(), 1) AND YEAR(date) = YEAR(CURDATE())"));
 $weekly_work_hours = $weekly_hours_res['total_hrs'] ? round((float)$weekly_hours_res['total_hrs'], 1) : 0.0;
-$weekly_target = 40.0;
+$weekly_target = 45.0;
 $weekly_pct = min(100, round(($weekly_work_hours / $weekly_target) * 100));
 
 ?>
@@ -79,8 +79,8 @@ $weekly_pct = min(100, round(($weekly_work_hours / $weekly_target) * 100));
                 </div>
                 
                 <div class="stat-card">
-                    <div class="stat-title">Late / Emergency Leave</div>
-                    <div class="stat-value" style="color: #f59e0b;"><?php echo $late_count; ?> / <?php echo $early_count; ?></div>
+                    <div class="stat-title">Late</div>
+                    <div class="stat-value" style="color: #f59e0b;"><?php echo $late_count; ?></div>
                 </div>
 
                 <div class="stat-card">

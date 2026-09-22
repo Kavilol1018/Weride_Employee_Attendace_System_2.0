@@ -12,8 +12,8 @@ $current_emp_id = $_SESSION['emp_id'];
 // BUILD QUERY
 $history_sql = "
     SELECT 
-        id, leave_type, start_date, start_time, end_date, end_time, duration, reason, application_date, status, rejection_reason
-    FROM leave_requests
+        id, leave_type, start_date, start_time, end_date, end_time, duration, reason, application_date, status, rejection_topic, rejection_reason
+    FROM leave_requests 
     WHERE emp_id = '$current_emp_id'
     ORDER BY application_date DESC, id DESC
 ";
@@ -158,14 +158,19 @@ $pending_leaves = mysqli_fetch_assoc($pending_leaves_query)['cnt'];
                                     <br>
                                     <?php echo date('M d, Y h:i A', strtotime($row['end_date'] . ' ' . $row['end_time'])); ?>
                                 </td>
-                                <td class="text-slate-600" style="font-weight: 600; "><?php echo htmlspecialchars($row['duration']); ?> mins</td>
+                                <td class="text-slate-600" style="font-weight: 600; "><?php echo htmlspecialchars($row['duration']) . ((float)$row['duration'] <= 1 ? ' day' : ' days'); ?></td>
                                 <td>
                                     <div class="text-slate-500" style="max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; " title="<?php echo htmlspecialchars($row['reason']); ?>">
                                         <?php echo htmlspecialchars($row['reason']); ?>
                                     </div>
-                                    <?php if ($row['status'] == 'rejected' && !empty($row['rejection_reason'])): ?>
-                                        <div class="bg-red-50 text-red-500" style="margin-top: 6px; font-size: 11px;  font-weight: 600;  padding: 4px 8px; border-radius: 6px; max-width: 250px;">
-                                            <strong style="color: #991b1b;">Manager Note:</strong> <?php echo htmlspecialchars($row['rejection_reason']); ?>
+                                    <?php if ($row['status'] == 'rejected'): ?>
+                                        <div class="bg-red-50 text-red-500" style="margin-top: 6px; font-size: 11px; font-weight: 600; padding: 6px 8px; border-radius: 6px; max-width: 250px; border: 1px solid #fecaca;">
+                                            <div style="color: #991b1b; margin-bottom: 2px;">
+                                                <strong>Topic:</strong> <?php echo htmlspecialchars($row['rejection_topic'] ?? 'Other'); ?>
+                                            </div>
+                                            <?php if (!empty($row['rejection_reason'])): ?>
+                                                <a href="javascript:void(0)" onclick="viewRejectionReason(`<?php echo htmlspecialchars(addslashes($row['rejection_reason'])); ?>`)" style="color: #dc2626; text-decoration: underline; font-size: 10px;">View Description</a>
+                                            <?php endif; ?>
                                         </div>
                                     <?php endif; ?>
                                 </td>
@@ -188,5 +193,19 @@ $pending_leaves = mysqli_fetch_assoc($pending_leaves_query)['cnt'];
         </div>
     </main>
 
-</body>
+        <div id="rejectionModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.5); backdrop-filter:blur(4px); align-items:center; justify-content:center; z-index:1000;">
+            <div class="modal-box bg-white" style="padding:30px; border-radius:20px; width:400px; max-width:90%; position:relative; box-shadow:0 10px 25px rgba(0,0,0,0.1);">
+                <button class="close-btn" onclick="document.getElementById('rejectionModal').style.display='none'" style="position:absolute; top:20px; right:20px; background:none; border:none; font-size:24px; cursor:pointer; color:#ef4444;">&times;</button>
+                  <h2 style="color: #ef4444; font-size: 18px; font-weight: 700; margin-bottom: 15px;">Rejection Description</h2>
+                  <div id="rejectionDescriptionText" style="font-size: 14px; color: #475569; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word; word-break: break-all; text-align: justify; max-height: 300px; overflow-y: auto; padding-right: 5px;"></div>
+            </div>
+        </div>
+        
+        <script>
+            function viewRejectionReason(reason) {
+                document.getElementById('rejectionDescriptionText').innerText = reason;
+                document.getElementById('rejectionModal').style.display = 'flex';
+            }
+        </script>
+    </body>
 </html>

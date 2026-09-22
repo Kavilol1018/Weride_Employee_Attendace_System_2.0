@@ -16,28 +16,55 @@ if ($start_date !== $end_date) {
 }
 
 // BUILD QUERY WITH FILTERS
-$where_clauses = ["lb.status = 'returned'", "lb.employee_id = '$current_employee_id'"];
-$where_clauses[] = "DATE(lb.break_start) BETWEEN '$start_date' AND '$end_date'";
+$where_clauses_lb = ["lb.status = 'returned'", "lb.employee_id = '$current_employee_id'"];
+$where_clauses_lb[] = "DATE(lb.break_start) BETWEEN '$start_date' AND '$end_date'";
+$where_sql_lb = implode(' AND ', $where_clauses_lb);
 
-$where_sql = implode(' AND ', $where_clauses);
+$where_clauses_sb = ["sb.status = 'returned'", "sb.emp_id = '$current_employee_id'"];
+$where_clauses_sb[] = "DATE(sb.break_start) BETWEEN '$start_date' AND '$end_date'";
+$where_sql_sb = implode(' AND ', $where_clauses_sb);
 
 $history_sql = "
-    SELECT 
-        lb.break_id, lb.break_start, lb.break_end,
-        TIMESTAMPDIFF(MINUTE, lb.break_start, lb.break_end) as duration_min,
-        lb.category, lb.is_edited
-    FROM lunch_breaks lb
-    WHERE $where_sql
-    ORDER BY lb.break_start DESC
+    SELECT * FROM (
+        SELECT 
+            lb.break_id, lb.break_start, lb.break_end,
+            TIMESTAMPDIFF(MINUTE, lb.break_start, lb.break_end) as duration_min,
+            lb.category, lb.is_edited
+        FROM lunch_breaks lb
+        WHERE $where_sql_lb
+        
+        UNION ALL
+        
+        SELECT 
+            sb.id as break_id, sb.break_start, sb.break_end,
+            sb.duration_min,
+            sb.category, sb.is_edited
+        FROM short_breaks sb
+        WHERE $where_sql_sb
+    ) combined_breaks
+    ORDER BY break_start DESC
 ";
 $history_result = mysqli_query($conn, $history_sql);
+if (!$history_result) {
+    die("SQL ERROR: " . mysqli_error($conn) . "<br>Query: " . $history_sql);
+}
 
 // STATS
-$today_total = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM lunch_breaks WHERE status = 'returned' AND employee_id = '$current_employee_id' AND DATE(break_start) = CURDATE()"))['cnt'];
-$avg_result = mysqli_query($conn, "SELECT AVG(TIMESTAMPDIFF(MINUTE, break_start, break_end)) as avg_min FROM lunch_breaks WHERE status = 'returned' AND employee_id = '$current_employee_id' AND DATE(break_start) = CURDATE() AND break_end IS NOT NULL");
+$today_total = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM (SELECT break_start FROM lunch_breaks WHERE status = 'returned' AND employee_id = '$current_employee_id' AND DATE(break_start) = CURDATE() UNION ALL SELECT break_start FROM short_breaks WHERE status = 'returned' AND emp_id = '$current_employee_id' AND DATE(break_start) = CURDATE()) t"))['cnt'];
+
+$avg_result = mysqli_query($conn, "SELECT AVG(duration) as avg_min FROM (SELECT TIMESTAMPDIFF(MINUTE, break_start, break_end) as duration FROM lunch_breaks WHERE status = 'returned' AND employee_id = '$current_employee_id' AND DATE(break_start) = CURDATE() AND break_end IS NOT NULL UNION ALL SELECT duration_min as duration FROM short_breaks WHERE status = 'returned' AND emp_id = '$current_employee_id' AND DATE(break_start) = CURDATE() AND break_end IS NOT NULL) t");
+if (!$avg_result) {
+    die("AVG STAT ERROR: " . mysqli_error($conn));
+}
 $avg_row = mysqli_fetch_assoc($avg_result);
 $avg_duration = $avg_row['avg_min'] ? round($avg_row['avg_min']) : 0;
-$overtime_count = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM lunch_breaks WHERE status = 'returned' AND employee_id = '$current_employee_id' AND TIMESTAMPDIFF(MINUTE, break_start, break_end) > 60 AND DATE(break_start) = CURDATE()"))['cnt'];
+
+$overtime_query = "SELECT COUNT(*) as cnt FROM (SELECT TIMESTAMPDIFF(MINUTE, break_start, break_end) as duration FROM lunch_breaks WHERE status = 'returned' AND employee_id = '$current_employee_id' AND DATE(break_start) = CURDATE() AND break_end IS NOT NULL UNION ALL SELECT duration_min as duration FROM short_breaks WHERE status = 'returned' AND emp_id = '$current_employee_id' AND DATE(break_start) = CURDATE() AND break_end IS NOT NULL) t WHERE duration > 60";
+$overtime_res = mysqli_query($conn, $overtime_query);
+if (!$overtime_res) {
+    die("OVERTIME STAT ERROR: " . mysqli_error($conn));
+}
+$overtime_count = mysqli_fetch_assoc($overtime_res)['cnt'];
 
 if (isset($_GET['export_csv'])) {
     header('Content-Type: text/csv; charset=utf-8');
