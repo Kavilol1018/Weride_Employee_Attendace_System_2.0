@@ -14,6 +14,7 @@ $selected_month = isset($_GET['month']) ? (int)$_GET['month'] : (int)date('m');
 $selected_year = isset($_GET['year']) ? (int)$_GET['year'] : (int)date('Y');
 $selected_status = isset($_GET['status']) ? mysqli_real_escape_string($conn, $_GET['status']) : '';
 $search_emp = isset($_GET['search']) ? mysqli_real_escape_string($conn, trim($_GET['search'])) : '';
+$sort_order = (isset($_GET['order']) && strtolower($_GET['order']) === 'asc') ? 'ASC' : 'DESC';
 
 $where_clauses = ["MONTH(al.date) = $selected_month", "YEAR(al.date) = $selected_year"];
 if (!empty($selected_status)) {
@@ -35,7 +36,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export') {
     $out = fopen('php://output', 'w');
     fputcsv($out, ['Employee ID', 'Employee Name', 'Employment Type', 'Date', 'Clock In', 'Clock Out', 'Work Hours', 'Status', 'Notes']);
     
-    $exp_sql = "SELECT al.*, e.name, e.employment_type FROM attendance_logs al JOIN employees e ON al.emp_id = e.emp_id WHERE $where_sql ORDER BY al.date DESC, e.name ASC";
+    $exp_sql = "SELECT al.*, e.name, e.employment_type FROM attendance_logs al JOIN employees e ON al.emp_id = e.emp_id WHERE $where_sql ORDER BY al.date $sort_order, e.name ASC";
     $exp_res = mysqli_query($conn, $exp_sql);
     
     while ($r = mysqli_fetch_assoc($exp_res)) {
@@ -44,8 +45,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'export') {
             $r['name'],
             $r['employment_type'],
             $r['date'],
-            $r['clock_in'] ? date('h:i A', strtotime($r['clock_in'])) : '-',
-            $r['clock_out'] ? date('h:i A', strtotime($r['clock_out'])) : '-',
+            $r['clock_in'] ? date('H:i', strtotime($r['clock_in'])) : '-',
+            $r['clock_out'] ? date('H:i', strtotime($r['clock_out'])) : '-',
             $r['work_hours'] . ' hrs',
             $r['status'],
             $r['notes'] ?? ''
@@ -55,7 +56,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export') {
     exit();
 }
 
-$logs_sql = "SELECT al.*, e.name, e.employment_type FROM attendance_logs al JOIN employees e ON al.emp_id = e.emp_id WHERE $where_sql ORDER BY al.date DESC, e.name ASC";
+$logs_sql = "SELECT al.*, e.name, e.employment_type FROM attendance_logs al JOIN employees e ON al.emp_id = e.emp_id WHERE $where_sql ORDER BY al.date $sort_order, e.name ASC";
 $logs_res = mysqli_query($conn, $logs_sql);
 ?>
 <!DOCTYPE html>
@@ -66,7 +67,7 @@ $logs_res = mysqli_query($conn, $logs_sql);
     <title>Attendance Report - WeRide</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; margin: 0; display: flex; color: #0f172a; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f8fafc; margin: 0; display: flex; color: #0f172a; }
         .main-content { flex: 1; padding: 25px; box-sizing: border-box; overflow-y: auto; height: 100vh; }
         
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
@@ -86,10 +87,24 @@ $logs_res = mysqli_query($conn, $logs_sql);
         th { background: #f8fafc; font-weight: 600; color: #64748b; }
         
         .badge { padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; text-transform: uppercase; }
-        .badge-present { background: #dcfce7; color: #166534; }
+        /* Generated from standard color map */
+        .bg-P { background: #ffffff !important; color: #333333 !important; }
+        .bg-WO { background: #716018 !important; color: #ffffff !important; }
+        .bg-UPL { background: #0891b2 !important; color: #ffffff !important; }
+        .bg-PH { background: #166534 !important; color: #ffffff !important; }
+        .bg-AL { background: #7e22ce !important; color: #ffffff !important; }
+        .bg-SL { background: #ea580c !important; color: #ffffff !important; }
+        .bg-HL { background: #334155 !important; color: #ffffff !important; }
+        .bg-A { background: #fca5a5 !important; color: #000000 !important; }
+        .bg-05AL { background: #4c1d95 !important; color: #ffffff !important; }
+        .bg-05SL { background: #713f12 !important; color: #ffffff !important; }
+        .bg-05UPL { background: #164e63 !important; color: #ffffff !important; }
+        .bg-LATE { background: #fef3c7 !important; color: #92400e !important; }
+        .bg-EMERGENCY { background: #fbcfe8 !important; color: #333333 !important; }
+        .badge-present { background: #ffffff; color: #333333; }
         .badge-late { background: #fef3c7; color: #92400e; }
-        .badge-early { background: #e0e7ff; color: #3730a3; }
-        .badge-absent { background: #fee2e2; color: #991b1b; }
+        .badge-early { background: #fbcfe8; color: #333333; }
+        .badge-absent { background: #fca5a5; color: #000000; }
         
         body.dark-mode { background-color: #0f172a; color: #f8fafc; }
         body.dark-mode .filters, body.dark-mode .card { background: #1e293b; border-color: #334155; }
@@ -122,10 +137,20 @@ $logs_res = mysqli_query($conn, $logs_sql);
                     <?php endfor; ?>
                 </select>
 
+                <select name="order" class="form-select">
+                    <option value="desc" <?= $sort_order === 'DESC' ? 'selected' : '' ?>>Newest First</option>
+                    <option value="asc" <?= $sort_order === 'ASC' ? 'selected' : '' ?>>Oldest First</option>
+                </select>
+
                 <select name="status" class="form-select">
                     <option value="">All Statuses</option>
                     <option value="P" <?= $selected_status === 'P' ? 'selected' : '' ?>>Present (On-Time)</option>
                     <option value="LATE" <?= $selected_status === 'LATE' ? 'selected' : '' ?>>Late</option>
+                    <option value="WO" <?= $selected_status === 'WO' ? 'selected' : '' ?>>Week Off (WO)</option>
+                    <option value="AL" <?= $selected_status === 'AL' ? 'selected' : '' ?>>Annual Leave (AL)</option>
+                    <option value="SL" <?= $selected_status === 'SL' ? 'selected' : '' ?>>Sick Leave (SL)</option>
+                    <option value="UPL" <?= $selected_status === 'UPL' ? 'selected' : '' ?>>Unpaid Leave (UPL)</option>
+                    <option value="PH" <?= $selected_status === 'PH' ? 'selected' : '' ?>>Public Holiday (PH)</option>
                     <option value="EMERGENCY" <?= $selected_status === 'EMERGENCY' ? 'selected' : '' ?>>Emergency Leave</option>
                     <option value="A" <?= $selected_status === 'A' ? 'selected' : '' ?>>Absent</option>
                 </select>
@@ -133,7 +158,7 @@ $logs_res = mysqli_query($conn, $logs_sql);
                 <input type="text" name="search" class="form-control" placeholder="Search Employee..." value="<?= htmlspecialchars($search_emp) ?>">
 
                 <button type="submit" class="btn">Filter</button>
-                <a href="?month=<?=$selected_month?>&year=<?=$selected_year?>&status=<?=urlencode($selected_status)?>&action=export" class="btn btn-success">📊 Export CSV</a>
+                <a href="?month=<?=$selected_month?>&year=<?=$selected_year?>&status=<?=urlencode($selected_status)?>&order=<?=strtolower($sort_order)?>&search=<?=urlencode($search_emp)?>&action=export" class="btn btn-success">📊 Export CSV</a>
             </form>
         </div>
 
@@ -155,19 +180,25 @@ $logs_res = mysqli_query($conn, $logs_sql);
                     <?php if ($logs_res && mysqli_num_rows($logs_res) > 0): ?>
                         <?php while ($r = mysqli_fetch_assoc($logs_res)): 
                             $st = strtoupper($r['status']);
-                            $badge_cls = 'badge-present';
-                            if ($st === 'LATE') $badge_cls = 'badge-late';
-                            elseif ($st === 'EMERGENCY') $badge_cls = 'badge-early';
-                            elseif ($st === 'A') $badge_cls = 'badge-absent';
+                            $safe_class = 'bg-' . preg_replace('/[^a-zA-Z0-9]/', '', $st);
+                            $badge_cls = $safe_class;
                         ?>
                             <tr>
                                 <td><?= date('d M Y (D)', strtotime($r['date'])) ?></td>
                                 <td><b>#<?= htmlspecialchars($r['emp_id']) ?></b></td>
                                 <td><?= htmlspecialchars($r['name']) ?></td>
-                                <td><?= htmlspecialchars($r['employment_type']) ?></td>
-                                <td><?= $r['clock_in'] ? date('h:i A', strtotime($r['clock_in'])) : '-' ?></td>
-                                <td><?= $r['clock_out'] ? date('h:i A', strtotime($r['clock_out'])) : '-' ?></td>
-                                <td><?= $r['work_hours'] ?> hrs</td>
+                                <td>
+                                    <?php 
+                                        $is_intern = (stripos($r['employment_type'] ?? '', 'intern') !== false);
+                                        $type_bg = $is_intern ? '#f3e8ff' : '#eff6ff';
+                                        $type_text = $is_intern ? '#7e22ce' : '#2563eb';
+                                        $type_label = $is_intern ? 'Intern' : 'Full Time';
+                                    ?>
+                                    <span style="background: <?= $type_bg ?>; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; color: <?= $type_text ?>;"><?= $type_label ?></span>
+                                </td>
+                                <td><?= $r['clock_in'] ? date('H:i', strtotime($r['clock_in'])) : '-' ?></td>
+                                <td><?= $r['clock_out'] ? date('H:i', strtotime($r['clock_out'])) : '-' ?></td>
+                                <td><?= (!empty($r['work_hours']) && floatval($r['work_hours']) > 0) ? htmlspecialchars($r['work_hours']) . ' hrs' : '-' ?></td>
                                 <td><span class="badge <?= $badge_cls ?>"><?= $st ?></span></td>
                             </tr>
                         <?php endwhile; ?>
