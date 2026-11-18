@@ -279,23 +279,14 @@ if ($action) {
             // Send notifications to any mentioned users
             send_mention_notifications($conn, $content, $mention_map, $current_emp_id, $current_user_name, 'post');
 
-            // Broadcast push notification to all other employees
+            // Broadcast push notification to all employees
             if (file_exists(__DIR__ . '/vapid_config.php')) {
                 require_once __DIR__ . '/vapid_config.php';
                 $snippet = mb_substr(strip_tags($content), 0, 70);
                 if (mb_strlen(strip_tags($content)) > 70) $snippet .= '...';
                 $push_body = !empty($snippet) ? "$current_user_name: \"$snippet\"" : "$current_user_name shared a photo/video update.";
 
-                $other_subs_q = mysqli_query($conn, "SELECT DISTINCT emp_id FROM push_subscriptions WHERE emp_id != '" . mysqli_real_escape_string($conn, $current_emp_id) . "'");
-                if ($other_subs_q && mysqli_num_rows($other_subs_q) > 0) {
-                    $target_ids = [];
-                    while ($sub_row = mysqli_fetch_assoc($other_subs_q)) {
-                        $target_ids[] = $sub_row['emp_id'];
-                    }
-                    if (!empty($target_ids)) {
-                        WebPushSender::sendToEmployee($conn, $target_ids, "WeRide Insides", $push_body, "weride_insides.php", "feed-post-" . time());
-                    }
-                }
+                WebPushSender::sendToEmployee($conn, 'all', "WeRide Insides", $push_body, "weride_insides.php", "feed-post-" . time());
             }
 
             echo json_encode(['success' => true]);
@@ -586,6 +577,7 @@ $user_initials = get_initials($current_user_name);
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <title>WeRide Insides - Company Community</title>
+    <?php include_once __DIR__ . '/pwa_head.php'; ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&display=swap" rel="stylesheet">
@@ -1785,6 +1777,34 @@ $user_initials = get_initials($current_user_name);
                         </div>
                     </div>
 
+                    <!-- PUSH NOTIFICATION PROMPT / TEST CARD -->
+                    <div id="feed-push-prompt" style="display:none; background: linear-gradient(135deg, rgba(0, 166, 214, 0.12), rgba(50, 213, 232, 0.05)); border: 1px solid rgba(0, 166, 214, 0.35); border-radius: 14px; padding: 14px 18px; margin-bottom: 20px; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;">
+                        <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 240px;">
+                            <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(0, 166, 214, 0.18); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0;">
+                                🔔
+                            </div>
+                            <div>
+                                <div style="font-weight: 700; font-size: 14px; color: var(--ci-text);">Enable Mobile Push Notifications</div>
+                                <div style="font-size: 12px; color: var(--ci-muted);">Get instant notifications with the WeRide logo when anyone posts in the feed, comments, or mentions you.</div>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <button type="button" id="btn-enable-push" onclick="enablePushAlertsWithTest(this)" style="background: linear-gradient(135deg, #00a6d6, #0284c7); color: #fff; border: none; padding: 9px 18px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; white-space: nowrap; box-shadow: 0 4px 14px rgba(0,166,214,0.35); display: flex; align-items: center; gap: 6px;">
+                                <span>Turn On Notifications</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- PUSH NOTIFICATIONS ACTIVE STATUS -->
+                    <div id="feed-push-active" style="display:none; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 12px; padding: 10px 16px; margin-bottom: 20px; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+                        <div style="display:flex; align-items:center; gap:8px; font-size:13px; color:#10b981; font-weight:600;">
+                            <span>✓</span> Push notifications are active on this device
+                        </div>
+                        <button type="button" onclick="sendTestPushToSelf(this)" style="background: transparent; border: 1px solid #10b981; color: #10b981; padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer;">
+                            Send Test Notification
+                        </button>
+                    </div>
+
                     <!-- POST COMPOSER -->
                     <div class="ci-composer">
                         <div class="ci-composer-head">
@@ -2627,6 +2647,94 @@ $user_initials = get_initials($current_user_name);
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) pingHeartbeat();
         });
+
+        // ====================================================================
+        // MOBILE PUSH NOTIFICATIONS HELPERS
+        // ====================================================================
+        function checkPushUIState() {
+            const promptBox = document.getElementById('feed-push-prompt');
+            const activeBox = document.getElementById('feed-push-active');
+            if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+                if (promptBox) promptBox.style.display = 'none';
+                if (activeBox) activeBox.style.display = 'none';
+                return;
+            }
+
+            if (Notification.permission === 'granted') {
+                if (promptBox) promptBox.style.display = 'none';
+                if (activeBox) activeBox.style.display = 'flex';
+            } else {
+                if (promptBox) promptBox.style.display = 'flex';
+                if (activeBox) activeBox.style.display = 'none';
+            }
+        }
+
+        async function enablePushAlertsWithTest(btn) {
+            const isIos = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+            if (isIos && !isStandalone) {
+                alert("📱 To get mobile notifications on iPhone:\n\n1. Tap the Share icon (square with arrow ↑) at the bottom of Safari.\n2. Tap 'Add to Home Screen' (+).\n3. Open WeRide from your Home Screen and tap 'Turn On Notifications'!");
+                return;
+            }
+
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = `<span>Connecting...</span>`;
+            }
+
+            if (window.subscribeWeRidePush) {
+                const ok = await window.subscribeWeRidePush(true);
+                if (ok) {
+                    checkPushUIState();
+                    // Send instant test notification so user sees company logo immediately
+                    try {
+                        const r = await fetch('api/send_test_push.php');
+                        const data = await r.json();
+                        alert("✅ Push notifications enabled! A test notification with the company logo has been sent to your phone.");
+                    } catch (e) {
+                        alert("✅ Push notifications enabled!");
+                    }
+                } else {
+                    alert("Notification permission was not granted. Please check your browser site settings and allow notifications.");
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = `<span>Turn On Notifications</span>`;
+                    }
+                }
+            } else {
+                alert("Push notifications are not supported by this browser.");
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = `<span>Turn On Notifications</span>`;
+                }
+            }
+        }
+
+        async function sendTestPushToSelf(btn) {
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = "Sending...";
+            }
+            try {
+                const r = await fetch('api/send_test_push.php');
+                const data = await r.json();
+                if (data.success) {
+                    alert("🔔 Test notification sent! Check your phone's notification bar.");
+                } else {
+                    alert(data.message || "Failed to send test push.");
+                }
+            } catch (e) {
+                alert("Network error sending test push.");
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerText = "Send Test Notification";
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', checkPushUIState);
     </script>
 </body>
 </html>
