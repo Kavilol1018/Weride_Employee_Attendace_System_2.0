@@ -1076,25 +1076,75 @@ $vio_data_values = array_values($vio_data);
             }
         }
 
-        // Live Countdown Logic for Active Breaks
-        setInterval(function() {
-            document.querySelectorAll('.timer-display[data-active="1"]').forEach(function(el) {
-                let sec = parseInt(el.getAttribute('data-seconds'));
-                sec--;
-                el.setAttribute('data-seconds', sec);
-                let isNeg = sec < 0;
-                if (isNeg) {
-                    el.classList.add('negative');
-                } else {
-                    el.classList.remove('negative');
-                }
-                let absSec = Math.abs(sec);
-                let m = Math.floor(absSec / 60);
-                let s = absSec % 60;
-                let sign = isNeg ? '-' : '';
-                el.innerText = sign + (m < 10 ? '0' + m : m) + ':' + (s < 10 ? '0' + s : s);
+        // Resilient Real-Clock Countdown Logic for Active Breaks (Persists across Monitor Sleep & Screen Lock)
+        (function() {
+            const activeTimers = document.querySelectorAll('.timer-display[data-active="1"]');
+            if (!activeTimers.length) return;
+
+            // Anchor each active timer to the computer's real hardware clock (Date.now())
+            activeTimers.forEach(el => {
+                const initialSec = parseInt(el.getAttribute('data-seconds'), 10) || 0;
+                el._targetTimeMs = Date.now() + (initialSec * 1000);
+                el._hasHours = el.innerText.trim().split(':').length >= 3;
             });
-        }, 1000);
+
+            function tickTimers() {
+                const now = Date.now();
+                activeTimers.forEach(el => {
+                    if (!el._targetTimeMs) return;
+                    const remainingSec = Math.round((el._targetTimeMs - now) / 1000);
+                    el.setAttribute('data-seconds', remainingSec);
+
+                    const isNeg = remainingSec < 0;
+                    if (isNeg) {
+                        el.classList.add('negative');
+                    } else {
+                        el.classList.remove('negative');
+                    }
+
+                    const absSec = Math.abs(remainingSec);
+                    const h = Math.floor(absSec / 3600);
+                    const m = Math.floor((absSec % 3600) / 60);
+                    const s = absSec % 60;
+                    const sign = isNeg ? '-' : '';
+
+                    let timeStr = '';
+                    if (el._hasHours || h > 0) {
+                        timeStr = (h < 10 ? '0' + h : h) + ':' + (m < 10 ? '0' + m : m) + ':' + (s < 10 ? '0' + s : s);
+                    } else {
+                        timeStr = (m < 10 ? '0' + m : m) + ':' + (s < 10 ? '0' + s : s);
+                    }
+                    el.innerText = sign + timeStr;
+                });
+            }
+
+            setInterval(tickTimers, 1000);
+
+            // Instant Screen Wake-Up & Tab Visibility Handler
+            let lastActiveTimestamp = Date.now();
+            document.addEventListener('visibilitychange', function() {
+                if (document.visibilityState === 'visible') {
+                    // Instantly recalculate timers against real clock
+                    tickTimers();
+
+                    // If monitor was asleep / inactive for more than 20 seconds, soft sync
+                    const sleepDuration = Date.now() - lastActiveTimestamp;
+                    if (sleepDuration > 20000) {
+                        const isTyping = document.activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName);
+                        const hasOpenModal = document.querySelector('.modal[style*="display: flex"], .modal[style*="display: block"], #leaveModal[style*="display: flex"], #overrideModal[style*="display: flex"]');
+                        if (!isTyping && !hasOpenModal) {
+                            window.location.reload();
+                        }
+                    }
+                } else {
+                    lastActiveTimestamp = Date.now();
+                }
+            });
+
+            window.addEventListener('focus', function() {
+                tickTimers();
+            });
+        })();
     </script>
 
     <?php if (date('N') == 5 && $has_clocked_in && !$has_clocked_out): ?>

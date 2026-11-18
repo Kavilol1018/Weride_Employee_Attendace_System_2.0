@@ -1563,7 +1563,41 @@ body.dark-mode #theme-toggle-btn {
     position: relative;
     display: inline-flex;
     align-items: center;
+    gap: 8px;
     z-index: 1000;
+}
+.global-refresh-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    color: #475569;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s ease;
+    padding: 0;
+    outline: none;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+.global-refresh-btn:hover {
+    background: #f8fafc;
+    border-color: #0284c7;
+    color: #0284c7;
+    transform: translateY(-1px);
+}
+.global-refresh-btn:active {
+    transform: scale(0.92);
+}
+.global-refresh-btn.spinning svg {
+    animation: globalSpin 0.7s linear infinite;
+}
+@keyframes globalSpin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 .global-notif-btn {
     width: 38px;
@@ -1707,6 +1741,17 @@ body.dark-mode #theme-toggle-btn {
 }
 
 /* Dark Mode Support */
+body.dark-mode .global-refresh-btn {
+    background: #111c2e;
+    border-color: #253347;
+    color: #94a3b8;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+body.dark-mode .global-refresh-btn:hover {
+    background: #1e293b;
+    border-color: #38bdf8;
+    color: #38bdf8;
+}
 body.dark-mode .global-notif-btn {
     background: #111c2e;
     border-color: #253347;
@@ -1780,8 +1825,13 @@ body.dark-mode .global-notif-empty {
 }
 </style>
 
-<!-- Global Topbar Notification Component -->
-<div id="global-notif-wrapper" class="global-notif-wrapper" style="display: none;">
+<!-- Global Topbar Notification & Refresh Component -->
+<div id="global-notif-wrapper" class="global-notif-wrapper" style="display: none; align-items: center; gap: 8px;">
+    <button type="button" class="global-refresh-btn" id="global-refresh-btn" onclick="triggerGlobalRefresh(this)" title="Refresh Page & Data" aria-label="Refresh">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+        </svg>
+    </button>
     <button type="button" class="global-notif-btn" id="global-notif-btn" onclick="toggleGlobalNotifDropdown(event)" title="Notifications" aria-label="Notifications">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
@@ -1955,6 +2005,36 @@ body.dark-mode .global-notif-empty {
         })
         .catch(() => {});
     }
+
+    window.triggerGlobalRefresh = function(btn) {
+        if (!btn) btn = document.getElementById('global-refresh-btn');
+        if (btn) btn.classList.add('spinning');
+        setTimeout(() => {
+            window.location.reload();
+        }, 180);
+    };
+
+    // Global Screen Sleep Wake-Up Auto Sync across the entire website & app
+    (function() {
+        let lastVisibleTime = Date.now();
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'visible') {
+                const sleepDuration = Date.now() - lastVisibleTime;
+                // If screen was asleep / backgrounded for more than 40 seconds
+                if (sleepDuration > 40000) {
+                    const isTyping = document.activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName);
+                    const hasModal = document.querySelector('.modal[style*="display: flex"], .modal[style*="display: block"], [id$="Modal"][style*="display: flex"], [id$="Modal"][style*="display: block"]');
+                    if (!isTyping && !hasModal) {
+                        const btn = document.getElementById('global-refresh-btn');
+                        if (btn) btn.classList.add('spinning');
+                        window.location.reload();
+                    }
+                }
+            } else {
+                lastVisibleTime = Date.now();
+            }
+        });
+    })();
 
     document.addEventListener('DOMContentLoaded', function() {
         initGlobalNotificationPlacement();
