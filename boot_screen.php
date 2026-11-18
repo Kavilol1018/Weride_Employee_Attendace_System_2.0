@@ -81,6 +81,41 @@
         -webkit-text-fill-color: transparent;
     }
 
+    /* iOS Tap to Enter Pill */
+    .weride-intro-prompt {
+        display: none;
+        margin-top: 36px;
+        align-items: center;
+        gap: 8px;
+        background: rgba(0, 166, 214, 0.16);
+        border: 1px solid rgba(56, 189, 248, 0.45);
+        color: #ffffff;
+        padding: 10px 24px;
+        border-radius: 30px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        box-shadow: 0 0 20px rgba(0, 166, 214, 0.35);
+        animation: weridePromptPulse 1.8s infinite ease-in-out;
+        z-index: 10;
+        cursor: pointer;
+    }
+
+    @keyframes weridePromptPulse {
+        0%, 100% {
+            transform: scale(1);
+            box-shadow: 0 0 16px rgba(0, 166, 214, 0.35);
+            border-color: rgba(56, 189, 248, 0.45);
+        }
+        50% {
+            transform: scale(1.05);
+            box-shadow: 0 0 28px rgba(56, 189, 248, 0.7);
+            border-color: rgba(56, 189, 248, 0.85);
+        }
+    }
+
     /* The Smooth Zoom and Fade Out To Web */
     .intro-fading .weride-intro-logo-box {
         transform: scale(2.2);
@@ -91,6 +126,12 @@
         transform: scale(2.5);
         opacity: 0;
     }
+
+    .intro-fading .weride-intro-prompt {
+        opacity: 0 !important;
+        transform: scale(0.9) !important;
+        transition: all 0.4s ease;
+    }
 </style>
 
 <script>
@@ -99,7 +140,7 @@
     const hasBooted = sessionStorage.getItem('weride_session_booted');
 
     if (hasBooted && !isTest) {
-        return; // Already booted, do nothing!
+        return; // Already booted in this session, do nothing!
     }
 
     sessionStorage.setItem('weride_session_booted', '1');
@@ -112,6 +153,10 @@
         window.werideBootAudio = audio;
     }
 
+    // Detect iOS devices (iPhone, iPad, iPod)
+    const isIos = /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase()) || 
+                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
     function createAndRunIntro() {
         if (document.getElementById('weride-intro-screen')) return;
 
@@ -123,6 +168,9 @@
                 <img src="pic/logo_only.png" alt="WeRide" class="weride-intro-logo-img">
                 <div class="weride-intro-brand">WeRide</div>
             </div>
+            <div class="weride-intro-prompt" id="weride-intro-prompt">
+                <span>🔊 Tap to Enter</span>
+            </div>
         `;
 
         (document.body || document.documentElement).appendChild(introScreen);
@@ -133,7 +181,7 @@
             if (transitionTriggered) return;
             transitionTriggered = true;
 
-            // Start sound (keeps playing smoothly into the web page)
+            // Start audio immediately (plays with 100% volume since user tapped or browser permitted)
             if (audio) {
                 audio.play().catch(() => {});
             }
@@ -151,21 +199,24 @@
         introScreen.addEventListener('pointerdown', runZoomAndFadeOut, { once: true });
         introScreen.addEventListener('touchstart', runZoomAndFadeOut, { once: true });
 
-        // Auto-trigger sound and zoom-fade into the web after a brief moment
-        const p = audio.play();
-        if (p !== undefined) {
-            p.then(() => {
-                // Audio autoplay permitted: zoom and fade into web after 600ms
-                setTimeout(runZoomAndFadeOut, 600);
-            }).catch(() => {
-                // If iOS blocked unprompted sound:
-                // Auto-fade into web after 1.8s if user hasn't tapped yet
-                setTimeout(() => {
-                    if (!transitionTriggered) runZoomAndFadeOut();
-                }, 1800);
-            });
+        if (isIos) {
+            // For iOS: Logo stays paused with "Tap to Enter" prompt waiting for user tap!
+            // When tapped anywhere, the sound plays at 100% fidelity without any browser restriction!
+            const prompt = document.getElementById('weride-intro-prompt');
+            if (prompt) prompt.style.display = 'inline-flex';
         } else {
-            setTimeout(runZoomAndFadeOut, 600);
+            // For non-iOS (Android, Desktop): Try autoplay and smooth auto zoom-fade into web
+            const p = audio.play();
+            if (p !== undefined) {
+                p.then(() => {
+                    setTimeout(runZoomAndFadeOut, 600);
+                }).catch(() => {
+                    const prompt = document.getElementById('weride-intro-prompt');
+                    if (prompt) prompt.style.display = 'inline-flex';
+                });
+            } else {
+                setTimeout(runZoomAndFadeOut, 600);
+            }
         }
     }
 
