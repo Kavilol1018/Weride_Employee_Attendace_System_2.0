@@ -409,7 +409,7 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
 <head>
     <link rel="icon" type="image/png" href="pic/logo_only.png">
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>WeRide - Employee Dashboard</title>
     <?php include 'pwa_head.php'; ?>
     <link rel="stylesheet" href="assets/css/dark_mode.css?v=<?php echo time(); ?>">
@@ -532,6 +532,186 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
         body.dark-mode .modal label, body.dark-mode .modal-box label { color: #cbd5e1 !important; }
         body.dark-mode .modal input, body.dark-mode .modal select, body.dark-mode .modal-box input, body.dark-mode .modal-box select { background-color: #0f172a !important; color: #f8fafc !important; border-color: #475569 !important; }
         body.dark-mode .modal .bg-amber-100, body.dark-mode .modal-box .bg-amber-100 { background-color: #451a03 !important; color: #fcd34d !important; }
+
+        /* ==========================================
+           NATIVE MOBILE RESPONSIVE STYLES (≤ 768px)
+           ========================================== */
+        @media (max-width: 768px) {
+            body {
+                display: block !important;
+                height: auto !important;
+                min-height: 100vh !important;
+                width: 100% !important;
+                max-width: 100vw !important;
+                overflow-x: hidden !important;
+            }
+
+            .main-content {
+                width: 100% !important;
+                max-width: 100vw !important;
+                min-width: 0 !important;
+                height: auto !important;
+                overflow-x: hidden !important;
+            }
+
+            .topbar {
+                padding: 14px 16px !important;
+                flex-wrap: wrap !important;
+                gap: 10px !important;
+                border-bottom: 1px solid #e2e8f0;
+            }
+
+            body.dark-mode .topbar {
+                border-bottom-color: #1e293b;
+            }
+
+            .page-title {
+                font-size: 17px !important;
+                font-weight: 700 !important;
+                flex: 1 1 auto !important;
+            }
+
+            .topbar-right {
+                gap: 8px !important;
+                margin-left: auto !important;
+            }
+
+            .topbar-right .btn-primary,
+            .topbar-right .btn-secondary,
+            .topbar-right .btn-danger {
+                padding: 8px 14px !important;
+                font-size: 13px !important;
+                border-radius: 8px !important;
+            }
+
+            .content {
+                padding: 16px 14px 40px 14px !important;
+                gap: 16px !important;
+                width: 100% !important;
+                max-width: 100vw !important;
+                overflow-x: hidden !important;
+            }
+
+            /* 4 Info Cards: 2x2 grid on mobile */
+            .info-cards {
+                display: grid !important;
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 10px !important;
+                width: 100% !important;
+            }
+
+            .info-card {
+                padding: 12px 10px !important;
+                flex-direction: column !important;
+                align-items: flex-start !important;
+                gap: 6px !important;
+                min-width: 0 !important;
+                border-radius: 12px !important;
+            }
+
+            .info-icon {
+                width: 32px !important;
+                height: 32px !important;
+                border-radius: 8px !important;
+            }
+
+            .info-icon svg {
+                width: 16px !important;
+                height: 16px !important;
+            }
+
+            .info-label {
+                font-size: 10px !important;
+                line-height: 1.2 !important;
+                margin-bottom: 2px !important;
+            }
+
+            .info-value {
+                font-size: 14px !important;
+                line-height: 1.3 !important;
+                word-break: break-word !important;
+            }
+
+            /* Action Cards (Meal Out & Break): Stack vertically in 1 full-width column */
+            .action-cards {
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 16px !important;
+                width: 100% !important;
+            }
+
+            .action-card {
+                width: 100% !important;
+                padding: 24px 16px !important;
+                border-radius: 16px !important;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04) !important;
+            }
+
+            .status-pill {
+                margin-bottom: 18px !important;
+                padding: 5px 12px !important;
+                font-size: 12px !important;
+            }
+
+            .timer-circle {
+                width: 64px !important;
+                height: 64px !important;
+                margin-bottom: 14px !important;
+            }
+
+            .timer-circle svg {
+                width: 26px !important;
+                height: 26px !important;
+            }
+
+            .timer-display {
+                font-size: 38px !important;
+                margin-bottom: 4px !important;
+            }
+
+            .timer-subtext {
+                font-size: 13px !important;
+                margin-bottom: 18px !important;
+            }
+
+            .action-form {
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+
+            .btn-action {
+                width: 100% !important;
+                padding: 14px !important;
+                font-size: 15px !important;
+                border-radius: 12px !important;
+            }
+
+            .bottom-actions {
+                justify-content: stretch !important;
+                width: 100% !important;
+            }
+
+            .btn-leave {
+                width: 100% !important;
+                justify-content: center !important;
+                padding: 14px !important;
+                font-size: 14px !important;
+                border-radius: 10px !important;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .info-cards {
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 8px !important;
+            }
+            .info-card {
+                padding: 10px 8px !important;
+            }
+            .timer-display {
+                font-size: 32px !important;
+            }
+        }
     </style>
     <link rel="stylesheet" href="assets/css/global_fixes.css?v=<?php echo time(); ?>">
     <!-- Flatpickr CSS -->

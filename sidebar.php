@@ -141,25 +141,35 @@ if (!function_exists('get_sidebar_notif_time')) {
 
     @media (max-width: 768px) {
         .mobile-toggle {
-            display: block;
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .desktop-toggle {
+            display: none !important;
         }
 
         .sidebar {
-            position: fixed;
-            left: -280px;
-            top: 0;
-            bottom: 0;
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            transform: translateX(0);
+            position: fixed !important;
+            left: -280px !important;
+            top: 0 !important;
+            bottom: 0 !important;
+            height: 100vh !important;
+            z-index: 99999 !important;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            transform: translateX(0) !important;
         }
 
         body.sidebar-open .sidebar {
-            transform: translateX(280px);
+            transform: translateX(280px) !important;
+            box-shadow: 10px 0 30px rgba(0,0,0,0.2) !important;
         }
 
         body.sidebar-open .sidebar-overlay {
-            display: block;
-            opacity: 1;
+            display: block !important;
+            opacity: 1 !important;
+            z-index: 99998 !important;
         }
 
         .topbar {

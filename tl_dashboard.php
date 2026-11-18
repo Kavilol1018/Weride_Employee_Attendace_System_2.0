@@ -531,7 +531,7 @@ $vio_data_values = array_values($vio_data);
 <head>
     <link rel="icon" type="image/png" href="pic/logo_only.png">
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>WeRide - Team Leader Dashboard</title>
     <link rel="stylesheet" href="assets/css/dark_mode.css?v=<?php echo time(); ?>">
     <script src="assets/js/theme_toggle.js"></script>

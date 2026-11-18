@@ -1,4 +1,4 @@
-const CACHE_NAME = 'weride-pwa-v1';
+const CACHE_NAME = 'weride-pwa-v2';
 const STATIC_ASSETS = [
   './pic/logo_only.png',
   './pic/WeRide.png',

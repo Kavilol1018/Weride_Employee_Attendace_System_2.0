@@ -76,7 +76,12 @@ body.sidebar-collapsed:not(.login-page) {
 
 @media (max-width: 768px) {
     body:not(.login-page) {
-        grid-template-columns: 1fr !important; /* Mobile collapses to 1 column */
+        display: block !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+        height: auto !important;
+        min-height: 100vh !important;
     }
 }
 
@@ -280,11 +285,19 @@ body.sidebar-collapsed:not(.login-page) {
         font-size: 11px !important;
     }
 
-    /* Employee/GL/TL Dashboard: info & action cards → wrap to 2-col grid */
-    .info-cards, .action-cards {
+    /* Employee/GL/TL Dashboard: info cards → 2-col grid, action cards → stack 1-col */
+    .info-cards {
         display: grid !important;
         grid-template-columns: repeat(2, 1fr) !important;
         gap: 10px !important;
+        width: 100% !important;
+    }
+
+    .action-cards {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 16px !important;
+        width: 100% !important;
     }
 
     .info-card {
