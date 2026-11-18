@@ -1844,6 +1844,10 @@ body.dark-mode .global-notif-empty {
             <h4>Notifications</h4>
             <button type="button" class="global-notif-mark" id="global-btn-mark-all" onclick="markAllGlobalNotifsRead(event)" style="<?= $global_unread_notifs_cnt > 0 ? '' : 'display:none;' ?>">Mark read</button>
         </div>
+        <div id="push-prompt-banner" style="display:none; padding:10px 14px; background:#eff6ff; border-bottom:1px solid #dbeafe; font-size:12px; align-items:center; justify-content:space-between; gap:8px;">
+            <span style="color:#1e40af; font-weight:600;">📲 Enable Mobile Push Alerts</span>
+            <button type="button" onclick="enablePushAlerts()" style="background:#2563eb; color:#ffffff; border:none; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">Enable</button>
+        </div>
         <div class="global-notif-list" id="global-notif-list">
             <?php if (empty($global_notifs)): ?>
                 <div class="global-notif-empty">No notifications yet.</div>
@@ -1920,6 +1924,30 @@ body.dark-mode .global-notif-empty {
         if (!dropdown) return;
         const isShown = dropdown.style.display === 'flex' || dropdown.style.display === 'block';
         dropdown.style.display = isShown ? 'none' : 'flex';
+        if (!isShown && window.checkPushBanner) {
+            window.checkPushBanner();
+        }
+    };
+
+    window.enablePushAlerts = async function() {
+        if (window.subscribeWeRidePush) {
+            const ok = await window.subscribeWeRidePush(true);
+            if (ok) {
+                const banner = document.getElementById('push-prompt-banner');
+                if (banner) banner.style.display = 'none';
+                alert("✅ Mobile push notifications are now active! You will receive WeRide alerts directly on your phone.");
+            }
+        }
+    };
+
+    window.checkPushBanner = function() {
+        if ('Notification' in window && Notification.permission !== 'granted') {
+            const banner = document.getElementById('push-prompt-banner');
+            if (banner) banner.style.display = 'flex';
+        } else {
+            const banner = document.getElementById('push-prompt-banner');
+            if (banner) banner.style.display = 'none';
+        }
     };
 
     window.markAllGlobalNotifsRead = function(e) {

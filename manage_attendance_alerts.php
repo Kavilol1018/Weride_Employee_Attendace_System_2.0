@@ -123,7 +123,8 @@ $violation_result = mysqli_query($conn, $violation_sql);
                 <h1 class="page-title">Attendance Violations</h1>
                 <p class="text-slate-500" style=" margin-top: 8px;">Monitoring Late Check-ins and Early Check-outs for <strong><?= $display_date ?></strong></p>
             </div>
-            <div>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <button type="button" onclick="sendTestPushToMe(this)" class="btn" style="background:#0f172a; color:#38bdf8; border: 1px solid #38bdf8;">📲 Test Mobile Push</button>
                 <a href="attendance_report.php" class="btn bg-slate-200 text-slate-900" >Back to Full Report</a>
             </div>
         </div>
@@ -248,6 +249,25 @@ $violation_result = mysqli_query($conn, $violation_sql);
         $(document).ready(function() {
             
         });
+
+        function sendTestPushToMe(btn) {
+            if (!btn) btn = event.target;
+            btn.disabled = true;
+            const originalText = btn.innerText;
+            btn.innerText = "Sending...";
+            fetch('api/send_test_push.php')
+                .then(r => r.json())
+                .then(res => {
+                    alert(res.message);
+                    btn.disabled = false;
+                    btn.innerText = originalText;
+                })
+                .catch(err => {
+                    alert("Error sending test push: " + err.message);
+                    btn.disabled = false;
+                    btn.innerText = originalText;
+                });
+        }
     </script>
 </body>
 </html>

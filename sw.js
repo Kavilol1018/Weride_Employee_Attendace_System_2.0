@@ -1,4 +1,4 @@
-const CACHE_NAME = 'weride-pwa-v2';
+const CACHE_NAME = 'weride-pwa-v3';
 const STATIC_ASSETS = [
   './pic/logo_only.png',
   './pic/WeRide.png',
@@ -77,5 +77,61 @@ self.addEventListener('fetch', (event) => {
           }
         });
       })
+  );
+});
+
+// ============================================================================
+// Web Push Notifications Handler (With Instagram-style WeRide Logo)
+// ============================================================================
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (e) {
+    data = {
+      title: 'WeRide Update',
+      body: event.data ? event.data.text() : 'You have a new attendance update.'
+    };
+  }
+
+  const title = data.title || 'WeRide Attendance';
+  const options = {
+    body: data.body || 'You have an important update from WeRide.',
+    icon: './pic/logo_only.png',
+    badge: './pic/logo_only.png',
+    image: data.image || null,
+    vibrate: [200, 100, 200, 100, 200],
+    tag: data.tag || ('weride-alert-' + Date.now()),
+    renotify: true,
+    requireInteraction: true,
+    data: {
+      url: data.url || './',
+      timestamp: Date.now()
+    }
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(title, options)
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = (event.notification.data && event.notification.data.url) ? event.notification.data.url : './';
+  
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      for (let client of windowClients) {
+        if ('focus' in client) {
+          if (client.url && client.url.includes('weride')) {
+            client.navigate(targetUrl);
+            return client.focus();
+          }
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+    })
   );
 });

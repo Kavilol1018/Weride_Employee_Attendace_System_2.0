@@ -20,7 +20,9 @@ if ('serviceWorker' in navigator) {
             .catch(err => console.log('WeRide PWA registration skipped:', err));
     });
 }
-
+</script>
+<script src="assets/js/push_notifications.js?v=<?php echo time(); ?>"></script>
+<script>
 // Global PWA Install Helper
 let deferredPrompt = null;
 

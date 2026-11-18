@@ -69,6 +69,22 @@ $sql_access = "CREATE TABLE IF NOT EXISTS `access_logs` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;";
 mysqli_query($conn, $sql_access);
 
+// 3.65 Create push_subscriptions table for mobile push notifications
+$sql_push = "CREATE TABLE IF NOT EXISTS `push_subscriptions` (
+    `id` INT(11) NOT NULL AUTO_INCREMENT,
+    `emp_id` VARCHAR(50) NOT NULL,
+    `endpoint` TEXT NOT NULL,
+    `p256dh` VARCHAR(255) NOT NULL,
+    `auth` VARCHAR(255) NOT NULL,
+    `user_agent` TEXT DEFAULT NULL,
+    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `unique_endpoint` (`endpoint`(190)),
+    INDEX `idx_emp` (`emp_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;";
+mysqli_query($conn, $sql_push);
+
 // 3.7 Create WeRide Insides (Community Feed) tables if missing
 $sql_c_posts = "CREATE TABLE IF NOT EXISTS `community_posts` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
