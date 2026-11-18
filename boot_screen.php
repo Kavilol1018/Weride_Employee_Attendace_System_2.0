@@ -269,6 +269,35 @@
 
     sessionStorage.setItem('weride_session_booted', '1');
 
+    // 1. START AUDIO PLAYBACK IMMEDIATELY (Zero delay, plays while screen is loading)
+    let audio = window.werideBootAudio;
+    if (!audio) {
+        audio = new Audio('assets/audio/weride_boot.mp3');
+        audio.preload = 'auto';
+        window.werideBootAudio = audio; // Keep globally referenced so it never cuts off
+    }
+
+    const tryPlayAudio = () => {
+        if (!audio) return;
+        const p = audio.play();
+        if (p !== undefined) {
+            p.catch(() => {
+                // If browser autoplay policy blocks unprompted audio, play on first user gesture anywhere
+                const unlock = () => {
+                    if (audio) audio.play().catch(() => {});
+                    window.removeEventListener('pointerdown', unlock, true);
+                    window.removeEventListener('touchstart', unlock, true);
+                    window.removeEventListener('click', unlock, true);
+                };
+                window.addEventListener('pointerdown', unlock, { capture: true, once: true });
+                window.addEventListener('touchstart', unlock, { capture: true, once: true });
+                window.addEventListener('click', unlock, { capture: true, once: true });
+            });
+        }
+    };
+    tryPlayAudio();
+
+    // 2. CREATE AND DISPLAY BOOT SCREEN OVERLAY IMMEDIATELY
     function createAndShowBootScreen() {
         if (document.getElementById('weride-boot-screen')) return;
 
@@ -295,25 +324,8 @@
 
         (document.body || document.documentElement).appendChild(bootContainer);
 
-        // Audio element setup
-        const audio = new Audio('assets/audio/weride_boot.mp3');
-        audio.preload = 'auto';
-
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-            playPromise.catch(err => {
-                // Autoplay policy prevented playback; play on first tap/click anywhere
-                const unlock = () => {
-                    audio.play().catch(() => {});
-                    window.removeEventListener('pointerdown', unlock);
-                    window.removeEventListener('touchstart', unlock);
-                    window.removeEventListener('click', unlock);
-                };
-                window.addEventListener('pointerdown', unlock, { once: true });
-                window.addEventListener('touchstart', unlock, { once: true });
-                window.addEventListener('click', unlock, { once: true });
-            });
-        }
+        // Ensure audio is playing
+        tryPlayAudio();
 
         // Status text sequence across the 5 seconds
         const statusText = document.getElementById('weride-boot-status-text');
@@ -331,9 +343,8 @@
                 clearTimeout(window.werideBootTimer);
                 window.werideBootTimer = null;
             }
-            if (skipped && audio) {
-                try { audio.pause(); } catch(e) {}
-            }
+            // CRUCIAL: Do NOT pause audio when skipping!
+            // The startup sound continues playing seamlessly in the background as user enters the app.
             bootContainer.classList.add('boot-exit');
             setTimeout(() => {
                 bootContainer.remove();
@@ -341,10 +352,11 @@
         };
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', createAndShowBootScreen);
-    } else {
+    // Attach immediately or as soon as documentElement exists
+    if (document.body || document.documentElement) {
         createAndShowBootScreen();
+    } else {
+        document.addEventListener('DOMContentLoaded', createAndShowBootScreen);
     }
 })();
 </script>
