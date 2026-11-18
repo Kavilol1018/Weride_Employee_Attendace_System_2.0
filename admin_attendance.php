@@ -410,7 +410,138 @@ $text_color_map = [
         
         @media (max-width: 1024px) {
             .main-content {
-                padding-top: max(20px, calc(16px + env(safe-area-inset-top, 0px))) !important;
+                padding: max(20px, calc(16px + env(safe-area-inset-top, 0px))) 10px calc(90px + env(safe-area-inset-bottom, 0px)) 10px !important;
+                height: auto !important;
+                overflow-y: visible !important;
+                overflow-x: hidden !important;
+                width: 100% !important;
+                max-width: 100vw !important;
+                box-sizing: border-box !important;
+            }
+
+            .header {
+                margin-bottom: 12px !important;
+            }
+
+            .header h1 {
+                font-size: 20px !important;
+            }
+
+            .filters {
+                padding: 12px 10px !important;
+                margin-bottom: 12px !important;
+                border-radius: 8px !important;
+            }
+
+            .filters form {
+                gap: 12px !important;
+            }
+
+            /* Hide PC dual top scrollbar on mobile */
+            .top-scrollbar-wrapper,
+            #topScrollWrapper {
+                display: none !important;
+            }
+
+            /* Enable smooth, unhindered touch scrolling on mobile */
+            .table-container {
+                max-width: 100% !important;
+                width: 100% !important;
+                overflow-x: auto !important;
+                overflow-y: auto !important;
+                -webkit-overflow-scrolling: touch !important;
+                touch-action: pan-x pan-y !important;
+                contain: unset !important;
+                transform: none !important;
+                -webkit-transform: none !important;
+                will-change: auto !important;
+                border-radius: 8px !important;
+            }
+
+            table {
+                font-size: 11px !important;
+            }
+
+            th, td {
+                padding: 8px 6px !important;
+                font-size: 11px !important;
+            }
+
+            /* Reset hardware transforms that glitch mobile WebKit sticky positioning */
+            .sticky-col-1, .sticky-col-2, .sticky-col-3, .sticky-col-4, thead th {
+                transform: none !important;
+                -webkit-transform: none !important;
+                will-change: auto !important;
+            }
+
+            /* Mobile Portrait: ONLY Employee Name (Col 1) is pinned sticky to the left */
+            .sticky-col-1 {
+                position: sticky !important;
+                left: 0 !important;
+                min-width: 135px !important;
+                max-width: 145px !important;
+                width: 140px !important;
+                z-index: 8 !important;
+                background: #ffffff !important;
+                box-shadow: 3px 0 6px -2px rgba(0, 0, 0, 0.15) !important;
+                padding: 8px 6px !important;
+                font-size: 11px !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+            }
+
+            /* Columns 2, 3, 4 are regular scrolling columns on mobile */
+            .sticky-col-2,
+            .sticky-col-3,
+            .sticky-col-4 {
+                position: static !important;
+                left: auto !important;
+                box-shadow: none !important;
+                z-index: 1 !important;
+                min-width: 85px !important;
+                width: auto !important;
+                max-width: none !important;
+                padding: 8px 6px !important;
+                font-size: 11px !important;
+            }
+
+            /* Table Header Sticky Behavior on Mobile */
+            thead th.sticky-col-1 {
+                position: sticky !important;
+                top: 0 !important;
+                left: 0 !important;
+                z-index: 25 !important;
+                background: #e2e8f0 !important;
+                box-shadow: 3px 0 6px -2px rgba(0, 0, 0, 0.15) !important;
+            }
+
+            thead th.sticky-col-2,
+            thead th.sticky-col-3,
+            thead th.sticky-col-4 {
+                position: sticky !important;
+                top: 0 !important;
+                left: auto !important;
+                z-index: 5 !important;
+                background: #f1f5f9 !important;
+                box-shadow: none !important;
+            }
+
+            .date-col {
+                min-width: 36px !important;
+                max-width: 36px !important;
+                width: 36px !important;
+                padding: 6px 2px !important;
+            }
+
+            body.dark-mode .sticky-col-1 {
+                background: #1e293b !important;
+                color: #f8fafc !important;
+            }
+
+            body.dark-mode thead th.sticky-col-1 {
+                background: #0f172a !important;
+                color: #f8fafc !important;
             }
         }
         
@@ -643,7 +774,7 @@ $text_color_map = [
                         
                     ?>
                     <tr>
-                        <td class="sticky-col-1" style="font-weight: 600;"><?= htmlspecialchars($emp['name']) ?></td>
+                        <td class="sticky-col-1" title="<?= htmlspecialchars($emp['name']) ?>" style="font-weight: 600;"><?= htmlspecialchars($emp['name']) ?></td>
                         <td class="sticky-col-2"><?= $emp['onboarding_date'] ? date('d M y', strtotime($emp['onboarding_date'])) : '-' ?></td>
                         <td class="sticky-col-3"><?= htmlspecialchars($emp['employment_type']) ?></td>
                         <td class="sticky-col-4"><?= htmlspecialchars($tl_name) ?></td>
@@ -787,6 +918,13 @@ $text_color_map = [
     <script>
     // Dynamic Pixel-Perfect Sticky Column Alignment and Top Scrollbar Sync
     function alignStickyColumns() {
+        if (window.innerWidth <= 1024) {
+            // Mobile portrait & landscape: ONLY Employee Name (Col 1) is sticky!
+            document.querySelectorAll('.sticky-col-2, .sticky-col-3, .sticky-col-4').forEach(el => {
+                el.style.left = '';
+            });
+            return;
+        }
         const table = document.querySelector('.table-container table');
         if (!table) return;
         const ths = table.querySelectorAll('thead tr:first-child th');
@@ -813,6 +951,10 @@ $text_color_map = [
         if (!topScroll || !mainScroll || !topTrack) return;
         
         const updateTrack = () => {
+            if (window.innerWidth <= 1024) {
+                topScroll.style.display = 'none';
+                return;
+            }
             const scrollW = mainScroll.scrollWidth;
             const clientW = mainScroll.clientWidth;
             if (scrollW > clientW + 2) {
