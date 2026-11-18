@@ -97,8 +97,8 @@ if (isset($_GET['export_csv'])) {
                 $row['name'],
                 $row['employment_type'],
                 ucfirst($row['period']),
-                date('h:i A', strtotime($row['break_start'])),
-                $row['break_end'] ? date('h:i A', strtotime($row['break_end'])) : '--',
+                date('H:i', strtotime($row['break_start'])),
+                $row['break_end'] ? date('H:i', strtotime($row['break_end'])) : '--',
                 $duration,
                 $status
             ));
@@ -401,7 +401,7 @@ if (isset($_GET['export_csv'])) {
             <div class="print-subtitle">Breaktime Management System</div>
             <div class="print-report-title">Breaktime Report</div>
             <div class="print-date"><?php echo $display_date; ?></div>
-            <div class="print-generated">Generated on: <?php echo date('d/m/Y — h:i A'); ?> by <?php echo htmlspecialchars($_SESSION['name']); ?> (<?php echo strtoupper($user_role); ?>)</div>
+            <div class="print-generated">Generated on: <?php echo date('d/m/Y — H:i'); ?> by <?php echo htmlspecialchars($_SESSION['name']); ?> (<?php echo strtoupper($user_role); ?>)</div>
         </div>
 
         <header class="topbar">
@@ -504,9 +504,9 @@ if (isset($_GET['export_csv'])) {
                                 echo "<tr>";
                                 echo "<td class='row-number'>" . $row_num++ . "</td>";
                                 echo "<td style='font-weight: 600; color: #0f172a;'>#" . htmlspecialchars($row['emp_id']) . "</td>";
-                                echo "<td style='font-weight: 500;'>" . htmlspecialchars($row['name']) . "</td>";
-                                echo "<td>" . date('h:i A', strtotime($row['break_start'])) . "</td>";
-                                echo "<td>" . ($row['break_end'] ? date('h:i A', strtotime($row['break_end'])) : '--') . "</td>";
+                                echo "<td style='font-weight: 500; text-transform: uppercase;'>" . htmlspecialchars($row['name']) . "</td>";
+                                echo "<td>" . date('H:i', strtotime($row['break_start'])) . "</td>";
+                                echo "<td>" . ($row['break_end'] ? date('H:i', strtotime($row['break_end'])) : '--') . "</td>";
                                 
                                 $dur_style = $is_overtime ? "color: #ef4444; font-weight: 700;" : "color: #059669; font-weight: 600;";
                                 echo "<td style='$dur_style'>" . $duration . " min" . ($is_overtime ? " ⚠️" : "") . "</td>";

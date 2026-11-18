@@ -1,0 +1,13 @@
+# Temporary and deployment packages
+*.zip
+scratch/
+backups/
+deploy_community/
+deploy_update/
+*.pptx
+
+# Database dumps
+*.sql
+
+# Logs
+*.log

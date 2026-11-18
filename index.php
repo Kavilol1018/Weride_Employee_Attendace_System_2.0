@@ -33,6 +33,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $_SESSION['emp_id'] = $row['emp_id'];
                 $_SESSION['name'] = $row['name'];
                 $_SESSION['role'] = $row['role'];
+                $_SESSION['profile_picture'] = $row['profile_picture'] ?? null;
 
                 // Redirect based on role
                 switch ($row['role']) {
@@ -74,6 +75,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WeRide - Login</title>
+    <?php include 'pwa_head.php'; ?>
     <style>
         * {
             margin: 0;
@@ -190,7 +192,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <link rel="stylesheet" href="assets/css/global_fixes.css?v=<?php echo time(); ?>">
     </head>
 
-<body>
+<body class="login-page">
 
     <div class="login-container">
         <div class="logo">
@@ -214,7 +216,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
             <div class="form-group">
                 <label class="form-label">Employee ID or WeLabel ID</label>
-                <input type="text" name="emp_id" class="form-input" required placeholder="e.g., FT-2606-001 or KL_Name@welabel.ai" autofocus>
+                <input type="text" name="emp_id" class="form-input" required placeholder="e.g., JSMY001 or KL_Name@welabel.ai" autofocus>
             </div>
 
             <div class="form-group">
@@ -225,10 +227,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <button type="submit" class="btn-login">Sign In</button>
         </form>
 
-        <div class="footer-text">
-            <a href="forgot_password.php" style="color: #3b82f6; text-decoration: none; font-weight: 600;">Forgot Password?</a>
-            <br><br>
-            For access issues, please Lark Kavi :).
+        <div style="text-align: center; margin-top: 24px;">
+            <button type="button" onclick="promptPwaInstall()" class="pwa-install-btn" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #cbd5e1; padding: 8px 18px; border-radius: 20px; font-size: 13px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.15)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">
+                <span>📲</span>
+                <span>Install WeRide App</span>
+            </button>
         </div>
     </div>
 

@@ -54,8 +54,8 @@ if (isset($_GET['export_csv'])) {
             
             fputcsv($output, array(
                 date('M d, Y', strtotime($row['clock_in'])),
-                date('h:i A', strtotime($row['clock_in'])),
-                $row['clock_out'] ? date('h:i A', strtotime($row['clock_out'])) : '--',
+                date('H:i', strtotime($row['clock_in'])),
+                $row['clock_out'] ? date('H:i', strtotime($row['clock_out'])) : '--',
                 $duration,
                 $status
             ));
@@ -224,8 +224,8 @@ if (isset($_GET['export_csv'])) {
                                 $duration_style = $is_ongoing ? "color: #d97706; font-weight: 700;" : "color: #059669; font-weight: 600;";
                                 echo "<tr>";
                                 echo "<td style='color: #0f172a; font-weight: 600;'>" . date('M d, Y', strtotime($row['clock_in'])) . "</td>";
-                                echo "<td style='font-weight: 500;'>" . date('h:i A', strtotime($row['clock_in'])) . "</td>";
-                                echo "<td style='font-weight: 500;'>" . ($row['clock_out'] ? date('h:i A', strtotime($row['clock_out'])) : '--') . "</td>";
+                                echo "<td style='font-weight: 500;'>" . date('H:i', strtotime($row['clock_in'])) . "</td>";
+                                echo "<td style='font-weight: 500;'>" . ($row['clock_out'] ? date('H:i', strtotime($row['clock_out'])) : '--') . "</td>";
                                 echo "<td style='$duration_style'>" . $duration . " hrs" . ($is_ongoing ? " ⏳" : "") . "</td>";
                                 echo "<td><span class='badge " . ($is_ongoing ? "badge-ongoing" : "badge-ok") . "'>" . ($is_ongoing ? "Ongoing" : "Complete") . "</span></td>";
                                 echo "</tr>";

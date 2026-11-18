@@ -12,7 +12,7 @@ $current_emp_id = $_SESSION['emp_id'];
 // BUILD QUERY
 $history_sql = "
     SELECT 
-        id, leave_type, start_date, start_time, end_date, end_time, duration, reason, application_date, status, rejection_topic, rejection_reason
+        id, leave_type, start_date, start_time, end_date, end_time, duration, reason, application_date, created_at, status, rejection_topic, rejection_reason
     FROM leave_requests 
     WHERE emp_id = '$current_emp_id'
     ORDER BY application_date DESC, id DESC
@@ -149,14 +149,26 @@ $pending_leaves = mysqli_fetch_assoc($pending_leaves_query)['cnt'];
                                 if ($row['status'] == 'rejected') $badge_class = 'badge-rejected';
                             ?>
                             <tr>
-                                <td class="text-slate-900" style="font-weight: 600; "><?php echo date('M d, Y', strtotime($row['application_date'])); ?></td>
+                                <td class="text-slate-900" style="font-weight: 600; white-space: nowrap;">
+                                    <?php 
+                                        $sub_time = (!empty($row['created_at']) && $row['created_at'] !== '0000-00-00 00:00:00') ? $row['created_at'] : null;
+                                        if ($sub_time): 
+                                    ?>
+                                        <span><?php echo date('M d, Y', strtotime($sub_time)); ?></span><br>
+                                        <span style="font-size: 11px; font-weight: 500; color: #64748b;"><?php echo date('h:i A', strtotime($sub_time)); ?></span>
+                                    <?php elseif (!empty($row['application_date']) && $row['application_date'] !== '0000-00-00'): ?>
+                                        <span><?php echo date('M d, Y', strtotime($row['application_date'])); ?></span>
+                                    <?php else: ?>
+                                        <span style="color: #94a3b8;">-</span>
+                                    <?php endif; ?>
+                                </td>
                                 <td style="font-weight: 500; color: #3b82f6;"><?php echo htmlspecialchars($row['leave_type']); ?></td>
                                 <td>
-                                    <?php echo date('M d, Y h:i A', strtotime($row['start_date'] . ' ' . $row['start_time'])); ?>
+                                    <?php echo date('M d, Y H:i', strtotime($row['start_date'] . ' ' . $row['start_time'])); ?>
                                     <br>
                                     <span style="color: #94a3b8; font-size: 12px;">to</span>
                                     <br>
-                                    <?php echo date('M d, Y h:i A', strtotime($row['end_date'] . ' ' . $row['end_time'])); ?>
+                                    <?php echo date('M d, Y H:i', strtotime($row['end_date'] . ' ' . $row['end_time'])); ?>
                                 </td>
                                 <td class="text-slate-600" style="font-weight: 600; "><?php echo htmlspecialchars($row['duration']) . ((float)$row['duration'] <= 1 ? ' day' : ' days'); ?></td>
                                 <td>

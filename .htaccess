@@ -1,16 +1,29 @@
 Options -MultiViews
 RewriteEngine On
-RewriteBase /
 
-# Unless directory, remove trailing slash
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^([^/]+)/$ http://%{HTTP_HOST}/$1 [R=301,L]
-
-# Redirect external .php requests to extensionless url
+# Redirect external .php requests to extensionless url (only for GET requests to preserve POST data)
+RewriteCond %{REQUEST_METHOD} !POST
 RewriteCond %{THE_REQUEST} ^[A-Z]{3,}\s([^.]+)\.php [NC]
 RewriteRule ^ %1 [R=301,L]
 
 # Resolve .php file for extensionless php urls
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteCond %{REQUEST_FILENAME}\.php -f
-RewriteRule ^(.*?)/?$ $1.php [L]
+RewriteCond %{REQUEST_FILENAME}.php -f
+RewriteRule ^(.*)$ $1.php [L]
+
+# PWA headers & manifest
+AddType application/manifest+json .json
+<Files "sw.js">
+    <IfModule mod_headers.c>
+        Header set Service-Worker-Allowed "/"
+        Header set Cache-Control "no-cache"
+    </IfModule>
+</Files>
+
+# Upload and memory limits for avatars & animated GIFs
+<IfModule mod_php.c>
+    php_value upload_max_filesize 12M
+    php_value post_max_size 16M
+    php_value memory_limit 128M
+</IfModule>
+

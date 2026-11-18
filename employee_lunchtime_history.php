@@ -50,7 +50,9 @@ if (!$history_result) {
 }
 
 // STATS
-$today_total = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM (SELECT break_start FROM lunch_breaks WHERE status = 'returned' AND employee_id = '$current_employee_id' AND DATE(break_start) = CURDATE() UNION ALL SELECT break_start FROM short_breaks WHERE status = 'returned' AND emp_id = '$current_employee_id' AND DATE(break_start) = CURDATE()) t"))['cnt'];
+$today_meals = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM lunch_breaks WHERE status = 'returned' AND employee_id = '$current_employee_id' AND DATE(break_start) = CURDATE()"))['cnt'];
+
+$today_short_breaks = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM short_breaks WHERE status = 'returned' AND emp_id = '$current_employee_id' AND DATE(break_start) = CURDATE()"))['cnt'];
 
 $avg_result = mysqli_query($conn, "SELECT AVG(duration) as avg_min FROM (SELECT TIMESTAMPDIFF(MINUTE, break_start, break_end) as duration FROM lunch_breaks WHERE status = 'returned' AND employee_id = '$current_employee_id' AND DATE(break_start) = CURDATE() AND break_end IS NOT NULL UNION ALL SELECT duration_min as duration FROM short_breaks WHERE status = 'returned' AND emp_id = '$current_employee_id' AND DATE(break_start) = CURDATE() AND break_end IS NOT NULL) t");
 if (!$avg_result) {
@@ -81,8 +83,8 @@ if (isset($_GET['export_csv'])) {
             
             fputcsv($output, array(
                 date('M d, Y', strtotime($row['break_start'])),
-                date('h:i A', strtotime($row['break_start'])),
-                $row['break_end'] ? date('h:i A', strtotime($row['break_end'])) : '--',
+                date('H:i', strtotime($row['break_start'])),
+                $row['break_end'] ? date('H:i', strtotime($row['break_end'])) : '--',
                 $duration,
                 $status
             ));
@@ -178,8 +180,16 @@ if (isset($_GET['export_csv'])) {
                     </div>
                     <div class="info-area">
                         <div class="info-title">Meals Today</div>
-                        <div class="info-value"><?php echo $today_total; ?></div>
+                        <div class="info-value"><?php echo $today_meals; ?></div>
                         <div style="font-size: 12px; color: #94a3b8; margin-top: 4px;">Completed meals</div>
+                    </div>
+                </div>
+                <div class="premium-stat-card">
+                    <div class="icon-box text-purple-600" style="background: rgba(147, 51, 234, 0.1); font-size: 24px;">☕</div>
+                    <div class="info-area">
+                        <div class="info-title">Breaks Today</div>
+                        <div class="info-value"><?php echo $today_short_breaks; ?></div>
+                        <div style="font-size: 12px; color: #94a3b8; margin-top: 4px;">Completed breaks</div>
                     </div>
                 </div>
                 <div class="premium-stat-card">
@@ -257,8 +267,8 @@ if (isset($_GET['export_csv'])) {
 
                                 echo "<tr>";
                                 echo "<td style='color: #0f172a; font-weight: 600;'>" . date('M d, Y', strtotime($row['break_start'])) . "</td>";
-                                echo "<td style='font-weight: 500;'>" . date('h:i A', strtotime($row['break_start'])) . "</td>";
-                                echo "<td style='font-weight: 500;'>" . ($row['break_end'] ? date('h:i A', strtotime($row['break_end'])) : '--') . "</td>";
+                                echo "<td style='font-weight: 500;'>" . date('H:i', strtotime($row['break_start'])) . "</td>";
+                                echo "<td style='font-weight: 500;'>" . ($row['break_end'] ? date('H:i', strtotime($row['break_end'])) : '--') . "</td>";
                                 $duration_style = $is_overtime ? "color: #ef4444; font-weight: 700;" : "color: #059669; font-weight: 600;";
                                 echo "<td style='$duration_style'>" . $duration . " min" . ($is_overtime ? " ⚠️" : "") . "</td>";
                                 echo "<td><span class='badge " . ($is_overtime ? "badge-overtime" : "badge-ok") . "'>" . ($is_overtime ? "Overtime" : "Within Limit") . "</span></td>";

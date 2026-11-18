@@ -92,8 +92,8 @@ if (isset($_GET['export_csv'])) {
                 $row['emp_id'],
                 $row['name'],
                 $row['employment_type'],
-                date('h:i A', strtotime($row['break_start'])),
-                $row['break_end'] ? date('h:i A', strtotime($row['break_end'])) : '--',
+                date('H:i', strtotime($row['break_start'])),
+                $row['break_end'] ? date('H:i', strtotime($row['break_end'])) : '--',
                 $duration,
                 $status
             ));
@@ -396,7 +396,7 @@ if (isset($_GET['export_csv'])) {
             <div class="print-subtitle">Lunchtime Management System</div>
             <div class="print-report-title">Lunchtime Report</div>
             <div class="print-date"><?php echo $display_date; ?></div>
-            <div class="print-generated">Generated on: <?php echo date('d/m/Y — h:i A'); ?> by <?php echo htmlspecialchars($_SESSION['name']); ?> (<?php echo strtoupper($user_role); ?>)</div>
+            <div class="print-generated">Generated on: <?php echo date('d/m/Y — H:i'); ?> by <?php echo htmlspecialchars($_SESSION['name']); ?> (<?php echo strtoupper($user_role); ?>)</div>
         </div>
 
         <header class="topbar">
@@ -503,19 +503,19 @@ if (isset($_GET['export_csv'])) {
                                 $duration = $row['duration_min'] ?? 0;
                                 $is_overtime = $duration > 60;
 
-                                $type_colors = [
-                                    'Full time' => ['bg' => '#ecfdf5', 'text' => '#059669'],
-                                    'Intern' => ['bg' => '#fdf4ff', 'text' => '#a855f7'],
-                                ];
-                                $color = $type_colors[$row['employment_type'] ?? ''] ?? ['bg' => '#f1f5f9', 'text' => '#475569'];
+                                $is_intern = (stripos($row['employment_type'] ?? '', 'intern') !== false);
+                                $color = $is_intern 
+                                    ? ['bg' => '#f3e8ff', 'text' => '#7e22ce'] 
+                                    : ['bg' => '#eff6ff', 'text' => '#2563eb'];
+                                $display_type = $is_intern ? 'Intern' : 'Full Time';
 
                                 echo "<tr>";
                                 echo "<td class='row-number'>" . $row_num++ . "</td>";
                                 echo "<td style='font-weight: 600; color: #0f172a;'>#" . htmlspecialchars($row['emp_id']) . "</td>";
-                                echo "<td style='font-weight: 500;'>" . htmlspecialchars($row['name']) . "</td>";
-                                echo "<td><span style='background: {$color['bg']}; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; color: {$color['text']};'>" . htmlspecialchars($row['employment_type']) . "</span></td>";
-                                echo "<td>" . date('h:i A', strtotime($row['break_start'])) . "</td>";
-                                echo "<td>" . ($row['break_end'] ? date('h:i A', strtotime($row['break_end'])) : '--') . "</td>";
+                                echo "<td style='font-weight: 500; text-transform: uppercase;'>" . htmlspecialchars($row['name']) . "</td>";
+                                echo "<td><span style='background: {$color['bg']}; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; color: {$color['text']};'>$display_type</span></td>";
+                                echo "<td>" . date('H:i', strtotime($row['break_start'])) . "</td>";
+                                echo "<td>" . ($row['break_end'] ? date('H:i', strtotime($row['break_end'])) : '--') . "</td>";
                                 
                                 $dur_style = $is_overtime ? "color: #ef4444; font-weight: 700;" : "color: #059669; font-weight: 600;";
                                 echo "<td style='$dur_style'>" . $duration . " min" . ($is_overtime ? " ⚠️" : "") . "</td>";
@@ -577,7 +577,6 @@ if (isset($_GET['export_csv'])) {
                 placeholderValue: "Select employees"
             });
         });
-
-
+    </script>
 </body>
 </html>

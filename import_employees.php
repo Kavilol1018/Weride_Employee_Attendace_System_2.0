@@ -31,7 +31,7 @@ function process_employee_row(mysqli $conn, array $data_row, array &$imported_ac
         if (count($data_row) < 5) return false; 
     }
     
-    $name = trim($data_row[0] ?? '');
+    $name = strtoupper(trim($data_row[0] ?? ''));
     $welabel_id = trim($data_row[1] ?? '');
     $assigned_gl = trim($data_row[2] ?? '');
     $onboarding_date_raw = trim($data_row[3] ?? '');
@@ -42,8 +42,9 @@ function process_employee_row(mysqli $conn, array $data_row, array &$imported_ac
         $employment_type = 'Intern';
     }
     
-    $al_balance = floatval($data_row[5] ?? 0);
-    $sl_balance = floatval($data_row[6] ?? 0);
+    $is_intern = (stripos($employment_type, 'intern') !== false);
+    $al_balance = $is_intern ? 0.0 : floatval($data_row[5] ?? 0);
+    $sl_balance = $is_intern ? 0.0 : floatval($data_row[6] ?? 0);
     $shift_time = trim($data_row[7] ?? '');
     $lunch_time = trim($data_row[8] ?? ''); // Col 8
     $status = trim($data_row[9] ?? 'Active'); // Col 9

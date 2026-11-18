@@ -26,7 +26,7 @@ $output = fopen('php://output', 'w');
 $headers = [
     'Employee ID', 'Employee Name', 'Employment Type', 'Team Lead Name', 'Onboarding Date',
     'Calendar Days', 'Working Days', 'Pay Days', 'Public Holidays', 'Weekends',
-    'Before Onboarding', 'Present Days', 'Late Count', 'Emergency Leave Count', 'Absent Days', 'Sick Leave', 'Annual Leave'
+    'Before Onboarding', 'Present Days', 'Late Count', 'Emergency Leave Count', 'Absent Days', 'Sick Leave', 'Annual Leave', 'Unpaid Leave'
 ];
 
 for ($d = 1; $d <= $days_in_month; $d++) {
@@ -116,10 +116,11 @@ while ($emp = mysqli_fetch_assoc($emp_query)) {
     $before_onboarding_count = 0;
     $present_count = 0;
     $late_count = 0;
-    $early_count = 0;
+    $early_count = 0; // Emergency Leave count
     $absent_count = 0;
     $sick_leave_count = 0;
     $annual_leave_count = 0;
+    $unpaid_leave_count = 0;
     
     $daily_cells = [];
     
@@ -134,7 +135,7 @@ while ($emp = mysqli_fetch_assoc($emp_query)) {
             $status = 'BO';
             $before_onboarding_count++;
         } elseif (isset($attendance[$emp_id][$d])) {
-            $att_status = strtoupper($attendance[$emp_id][$d]);
+            $att_status = strtoupper(trim($attendance[$emp_id][$d]));
             if (in_array($att_status, ['P', 'PRESENT'])) {
                 $status = 'P';
                 $present_count++;
@@ -157,17 +158,21 @@ while ($emp = mysqli_fetch_assoc($emp_query)) {
             } elseif ($att_status == 'SL') {
                 $status = 'SL';
                 $sick_leave_count++;
-            } elseif ($att_status == '0.5 AL') {
+            } elseif (in_array($att_status, ['0.5 AL', '0.5AL'])) {
                 $status = '0.5 AL';
                 $present_count += 0.5;
                 $annual_leave_count += 0.5;
-            } elseif ($att_status == '0.5 SL') {
+            } elseif (in_array($att_status, ['0.5 SL', '0.5SL'])) {
                 $status = '0.5 SL';
                 $present_count += 0.5;
                 $sick_leave_count += 0.5;
-            } elseif ($att_status == '0.5UPL') {
+            } elseif (in_array($att_status, ['0.5UPL', '0.5 UPL'])) {
                 $status = '0.5UPL';
                 $present_count += 0.5;
+                $unpaid_leave_count += 0.5;
+            } elseif ($att_status == 'UPL') {
+                $status = 'UPL';
+                $unpaid_leave_count++;
             } elseif (in_array($att_status, ['HD', '0.5'])) {
                 $status = $att_status;
                 $present_count += 0.5;
@@ -176,6 +181,12 @@ while ($emp = mysqli_fetch_assoc($emp_query)) {
                 $early_count++;
             } else {
                 $status = $att_status;
+                if (strpos($status, '0.5UPL') !== false || strpos($status, '0.5 UPL') !== false) {
+                    $unpaid_leave_count += 0.5;
+                    $present_count += 0.5;
+                } elseif (strpos($status, 'UPL') !== false) {
+                    $unpaid_leave_count += 1;
+                }
             }
         } elseif (isset($public_holidays_db[$d])) {
             $status = 'PH';
@@ -185,9 +196,26 @@ while ($emp = mysqli_fetch_assoc($emp_query)) {
             $weekend_count++;
         } elseif (isset($leaves[$emp_id][$d])) {
             $status = $leaves[$emp_id][$d];
-            if ($status == 'AL') $annual_leave_count++;
-            elseif ($status == 'SL') $sick_leave_count++;
-            elseif (in_array($status, ['HD', '0.5'])) $present_count += 0.5;
+            if ($status == 'AL') {
+                $annual_leave_count++;
+            } elseif ($status == 'SL') {
+                $sick_leave_count++;
+            } elseif ($status == 'UPL') {
+                $unpaid_leave_count++;
+            } elseif (in_array($status, ['0.5 AL', '0.5AL'])) {
+                $present_count += 0.5;
+                $annual_leave_count += 0.5;
+            } elseif (in_array($status, ['0.5 SL', '0.5SL'])) {
+                $present_count += 0.5;
+                $sick_leave_count += 0.5;
+            } elseif (in_array($status, ['0.5UPL', '0.5 UPL'])) {
+                $present_count += 0.5;
+                $unpaid_leave_count += 0.5;
+            } elseif (in_array($status, ['HD', '0.5'])) {
+                $present_count += 0.5;
+            } elseif ($status == 'EMERGENCY') {
+                $early_count++;
+            }
         } else {
             if ($current_date_time <= strtotime("today")) {
                 $status = 'A';
@@ -199,8 +227,10 @@ while ($emp = mysqli_fetch_assoc($emp_query)) {
         $daily_cells[] = ($status === 'BO') ? 'BO' : $status;
     }
     
-    $working_days = $present_count + $annual_leave_count + $sick_leave_count;
-    $pay_days = $working_days + $public_holiday_count + $weekend_count;
+    // Calendar Days is strictly the total days in the month
+    $calendar_days = $days_in_month;
+    $working_days = $present_count + $annual_leave_count + $sick_leave_count + $early_count;
+    $pay_days = $calendar_days - $public_holiday_count - $weekend_count;
     
     $tl_name = isset($emp_names[$emp['group_leader_id']]) ? $emp_names[$emp['group_leader_id']] : '-';
 
@@ -221,7 +251,8 @@ while ($emp = mysqli_fetch_assoc($emp_query)) {
         $early_count,
         $absent_count,
         $sick_leave_count,
-        $annual_leave_count
+        $annual_leave_count,
+        $unpaid_leave_count
     ], $daily_cells);
     
     fputcsv($output, $row_data);

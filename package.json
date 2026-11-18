@@ -1,0 +1,21 @@
+{
+  "name": "we-ride-system-main",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kavilol1018/Weride_Employee_Attendace_System_2.0.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Kavilol1018/Weride_Employee_Attendace_System_2.0/issues"
+  },
+  "homepage": "https://github.com/Kavilol1018/Weride_Employee_Attendace_System_2.0#readme"
+}

@@ -7,12 +7,34 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'hr',
 include 'db_connect.php';
 
 // FILTER VALUES
-$filter_type = isset($_GET['type']) ? mysqli_real_escape_string($conn, $_GET['type']) : '';
+$filter_type = isset($_GET['type']) ? mysqli_real_escape_string($conn, trim($_GET['type'])) : '';
+$view_scope = isset($_GET['view_scope']) ? trim($_GET['view_scope']) : '';
+$user_role = $_SESSION['role'] ?? 'employee';
+$gl_emp_id = $_SESSION['emp_id'] ?? '';
 
 // BUILD QUERY
-$query = "SELECT emp_id, welabel_id, name, employment_type, role, lunch_window, group_leader_id FROM employees";
+$where_clauses = [];
+
+if ($user_role === 'gl') {
+    if ($view_scope !== 'all') {
+        $where_clauses[] = "(group_leader_id = '$gl_emp_id' OR role = 'gl')";
+    }
+    $where_clauses[] = "role IN ('employee', 'qa', 'intern', 'gl')";
+}
+
 if ($filter_type) {
-    $query .= " WHERE employment_type = '$filter_type'";
+    if ($filter_type === 'Full time') {
+        $where_clauses[] = "employment_type LIKE 'Full%time'";
+    } elseif ($filter_type === 'Intern') {
+        $where_clauses[] = "employment_type LIKE '%Intern%'";
+    } else {
+        $where_clauses[] = "employment_type = '$filter_type'";
+    }
+}
+
+$query = "SELECT emp_id, welabel_id, name, employment_type, role, lunch_window, group_leader_id FROM employees";
+if (!empty($where_clauses)) {
+    $query .= " WHERE " . implode(" AND ", $where_clauses);
 }
 $query .= " ORDER BY id DESC";
 

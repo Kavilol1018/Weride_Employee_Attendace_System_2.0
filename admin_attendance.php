@@ -2,8 +2,8 @@
 session_start();
 require 'db_connect.php';
 
-// Ensure user is management
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'hr', 'tl', 'gl'])) {
+// Ensure user is logged in
+if (!isset($_SESSION['user_id'])) {
     if (isset($_POST['action']) || (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false)) {
         header('Content-Type: application/json');
         echo json_encode(['success' => false, 'error' => 'Unauthorized or session expired.']);
@@ -13,22 +13,100 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'hr',
     exit();
 }
 
-$role_slug = $_SESSION['role'];
+$role_slug = strtolower($_SESSION['role'] ?? 'employee');
 $current_page = 'admin_attendance.php';
+$can_edit_calendar = in_array($role_slug, ['admin', 'hr', 'tl']);
 
 // Handle AJAX inline edits
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'inline_edit') {
+    if (!$can_edit_calendar) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'error' => 'Unauthorized. Only Admin, HR, and Team Leaders can make changes in the calendar.']);
+        exit();
+    }
+    
     $emp_id = mysqli_real_escape_string($conn, $_POST['emp_id']);
     $date = mysqli_real_escape_string($conn, $_POST['date']);
     $status = mysqli_real_escape_string($conn, $_POST['status']);
     
     // Check if record exists
-    $check = mysqli_query($conn, "SELECT id FROM attendance_logs WHERE emp_id = '$emp_id' AND `date` = '$date'");
+    $check = mysqli_query($conn, "SELECT id, status, source FROM attendance_logs WHERE emp_id = '$emp_id' AND `date` = '$date'");
+    $old_status = '';
+    $old_source = 'manual';
+    $source_col_exists = ($check !== false && !mysqli_error($conn));
     
     if ($check && mysqli_num_rows($check) > 0) {
-        $res = mysqli_query($conn, "UPDATE attendance_logs SET status = '$status' WHERE emp_id = '$emp_id' AND `date` = '$date'");
+        $row = mysqli_fetch_assoc($check);
+        $old_status = $row['status'];
+        $old_source = $row['source'] ?? 'manual';
+        if ($source_col_exists) {
+            $res = mysqli_query($conn, "UPDATE attendance_logs SET status = '$status', source = 'manual' WHERE emp_id = '$emp_id' AND `date` = '$date'");
+        } else {
+            $res = mysqli_query($conn, "UPDATE attendance_logs SET status = '$status' WHERE emp_id = '$emp_id' AND `date` = '$date'");
+        }
+    } elseif (!$check) {
+        // SELECT failed (e.g. source column missing) - retry without source
+        $check2 = mysqli_query($conn, "SELECT id, status FROM attendance_logs WHERE emp_id = '$emp_id' AND `date` = '$date'");
+        $source_col_exists = false;
+        if ($check2 && mysqli_num_rows($check2) > 0) {
+            $row = mysqli_fetch_assoc($check2);
+            $old_status = $row['status'];
+            $res = mysqli_query($conn, "UPDATE attendance_logs SET status = '$status' WHERE emp_id = '$emp_id' AND `date` = '$date'");
+        } else {
+            $res = mysqli_query($conn, "INSERT INTO attendance_logs (emp_id, `date`, status) VALUES ('$emp_id', '$date', '$status')");
+        }
     } else {
-        $res = mysqli_query($conn, "INSERT INTO attendance_logs (emp_id, `date`, status) VALUES ('$emp_id', '$date', '$status')");
+        if ($source_col_exists) {
+            $res = mysqli_query($conn, "INSERT INTO attendance_logs (emp_id, `date`, status, source) VALUES ('$emp_id', '$date', '$status', 'manual')");
+        } else {
+            $res = mysqli_query($conn, "INSERT INTO attendance_logs (emp_id, `date`, status) VALUES ('$emp_id', '$date', '$status')");
+        }
+    }
+    
+    // Adjust leave balances incrementally based on old vs new status.
+    if ($old_status !== $status) {
+        $al_diff = 0;
+        $sl_diff = 0;
+        $upl_diff = 0;
+        $hl_diff = 0;
+        
+        // Remove old status impact (give back what was consumed)
+        $old_parts = explode('/', $old_status);
+        foreach ($old_parts as $op) {
+            $op = trim($op);
+            if ($op === 'AL') $al_diff += 1;
+            elseif ($op === '0.5 AL' || $op === '0.5AL') $al_diff += 0.5;
+            elseif ($op === 'SL') $sl_diff += 1;
+            elseif ($op === '0.5 SL' || $op === '0.5SL') $sl_diff += 0.5;
+            elseif ($op === 'UPL') $upl_diff -= 1;
+            elseif ($op === '0.5 UPL' || $op === '0.5UPL') $upl_diff -= 0.5;
+            elseif ($op === 'HL') $hl_diff += 1;
+        }
+
+        // Add new status impact (consume leave)
+        $new_parts = explode('/', $status);
+        foreach ($new_parts as $np) {
+            $np = trim($np);
+            if ($np === 'AL') $al_diff -= 1;
+            elseif ($np === '0.5 AL' || $np === '0.5AL') $al_diff -= 0.5;
+            elseif ($np === 'SL') $sl_diff -= 1;
+            elseif ($np === '0.5 SL' || $np === '0.5SL') $sl_diff -= 0.5;
+            elseif ($np === 'UPL') $upl_diff += 1;
+            elseif ($np === '0.5 UPL' || $np === '0.5UPL') $upl_diff += 0.5;
+            elseif ($np === 'HL') $hl_diff -= 1;
+        }
+        
+        if ($al_diff != 0 || $sl_diff != 0 || $upl_diff != 0 || $hl_diff != 0) {
+            mysqli_query($conn, "
+                UPDATE employees 
+                SET 
+                    annual_leave_balance = GREATEST(0, annual_leave_balance + ($al_diff)),
+                    sick_leave_balance = GREATEST(0, sick_leave_balance + ($sl_diff)),
+                    unpaid_leave_balance = GREATEST(0, unpaid_leave_balance + ($upl_diff)),
+                    hospitalization_leave_balance = GREATEST(0, hospitalization_leave_balance + ($hl_diff))
+                WHERE emp_id = '$emp_id'
+            ");
+        }
     }
     
     ob_clean(); // Clear any warnings/notices to ensure clean JSON
@@ -41,31 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit();
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'override_time') {
-    $emp_id = mysqli_real_escape_string($conn, $_POST['emp_id']);
-    $date = mysqli_real_escape_string($conn, $_POST['date']);
-    $clock_in = mysqli_real_escape_string($conn, $_POST['clock_in']);
-    $clock_out = mysqli_real_escape_string($conn, $_POST['clock_out']);
-    
-    // Check if record exists
-    $check = mysqli_query($conn, "SELECT id FROM attendance_logs WHERE emp_id = '$emp_id' AND `date` = '$date'");
-    
-    $clock_in_val = empty($clock_in) ? "NULL" : "'$date $clock_in'";
-    $clock_out_val = empty($clock_out) ? "NULL" : "'$date $clock_out'";
 
-    if ($check && mysqli_num_rows($check) > 0) {
-        $res = mysqli_query($conn, "UPDATE attendance_logs SET clock_in = $clock_in_val, clock_out = $clock_out_val WHERE emp_id = '$emp_id' AND `date` = '$date'");
-    } else {
-        $res = mysqli_query($conn, "INSERT INTO attendance_logs (emp_id, `date`, clock_in, clock_out, status) VALUES ('$emp_id', '$date', $clock_in_val, $clock_out_val, 'P')");
-    }
-    
-    if (isset($res) && $res) {
-        header("Location: admin_attendance.php?msg=" . urlencode("Times overridden successfully."));
-    } else {
-        header("Location: admin_attendance.php?error=" . urlencode(mysqli_error($conn)));
-    }
-    exit();
-}
 
 // Filter logic
 $selected_month = isset($_GET['month']) ? (int)$_GET['month'] : (int)date('m');
@@ -150,24 +204,28 @@ if ($ph_query) {
 
 // Map short codes to colors based on screenshot
 $color_map = [
-    'P' => '#f0fdf4', // Present (keep as is)
-    'WO' => '#574A11', // Weekend 
-    'UPL' => '#2891A4', // Unpaid Leave 
-    'PH' => '#2D532B', // Public Holiday
-    'AL' => '#7131C6', // Annual Leave
-    'SL' => '#E88C22', // Sick Leave
-    'HL' => '#273656', // Hospital Leave
-    'A' => '#fca5a5', // Absent (keep as is)
-    'HD' => '#fde047', // Half Day (keep as is)
-    '0.5' => '#fde047', // Half Day (numerical)
-    '0.5 AL' => '#3C2068', // Half-day annual leave
-    '0.5 SL' => '#784911', // Half-day sick leave
-    '0.5UPL' => '#1D3E47', // Half-day unpaid leave
-    'EMERGENCY' => '#fbcfe8', // Emergency Leave (keep as is)
-    'BO' => '#e5e7eb' // Before onboarding
+    'P' => '#ffffff', // White
+    'WO' => '#716018', // Olive
+    'UPL' => '#0891b2', // Teal
+    'PH' => '#166534', // Dark Green
+    'AL' => '#7e22ce', // Bright Purple
+    'SL' => '#ea580c', // Orange
+    'HL' => '#334155', // Dark Gray/Blue
+    'A' => '#fca5a5', // Light Pink/Red
+    'HD' => '#fde047',
+    '0.5' => '#fde047',
+    '0.5 AL' => '#4c1d95', // Dark Purple
+    '0.5AL' => '#4c1d95',
+    '0.5 SL' => '#713f12', // Brown
+    '0.5SL' => '#713f12',
+    '0.5UPL' => '#164e63', // Dark Teal
+    '0.5 UPL' => '#164e63',
+    'EMERGENCY' => '#fbcfe8',
+    'BO' => '#e5e7eb'
 ];
 
 $text_color_map = [
+    'P' => '#333333',
     'WO' => '#ffffff',
     'UPL' => '#ffffff',
     'PH' => '#ffffff',
@@ -175,8 +233,12 @@ $text_color_map = [
     'SL' => '#ffffff',
     'HL' => '#ffffff',
     '0.5 AL' => '#ffffff',
+    '0.5AL' => '#ffffff',
     '0.5 SL' => '#ffffff',
+    '0.5SL' => '#ffffff',
     '0.5UPL' => '#ffffff',
+    '0.5 UPL' => '#ffffff',
+    'A' => '#000000',
     'BO' => '#333333'
 ];
 
@@ -189,7 +251,7 @@ $text_color_map = [
     <title>Attendance Grid - WeRide</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; margin: 0; display: flex; color: #0f172a; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f8fafc; margin: 0; display: flex; color: #0f172a; }
         .main-content { flex: 1; padding: 20px; overflow: hidden; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; }
         
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
@@ -278,9 +340,9 @@ $text_color_map = [
                 </div>
                 <div style="padding-top: 25px; display: flex; gap: 10px;">
                     <button type="submit" class="bg-blue-600 text-white" style="  border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; font-size: 14px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);">Apply Filter</button>
+                    <?php if ($role_slug !== 'employee'): ?>
                     <a href="export_attendance_grid.php?month=<?=$selected_month?>&year=<?=$selected_year?><?= isset($_GET['team_lead']) ? '&team_lead='.urlencode($_GET['team_lead']) : '' ?>" style="background: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; font-size: 14px; text-decoration: none; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); display: inline-block; box-sizing: border-box;">Download CSV</a>
-                    <button type="button" onclick="document.getElementById('importModal').style.display='flex'" style="background: white; color: #3b82f6; border: 1px solid #3b82f6; padding: 9px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; font-size: 14px; box-sizing: border-box;">+ Import CSV Override</button>
-                    <button type="button" onclick="document.getElementById('overrideModal').style.display='flex'" style="background: #3b82f6; color: white; border: none; padding: 9px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; font-size: 14px; box-sizing: border-box;">+ Override Times</button>
+                    <?php endif; ?>
                 </div>
             </form>
         </div>
@@ -314,6 +376,7 @@ $text_color_map = [
                         <th class="summary-header">Sick Leave</th>
                         <th class="summary-header">Annual Leave</th>
                         <th class="summary-header">Emergency Leave</th>
+                        <th class="summary-header">Unpaid Leave</th>
                         
                         <?php for($d=1; $d<=$days_in_month; $d++): ?>
                             <th class="date-col"><?= sprintf("%02d", $d) ?></th>
@@ -328,7 +391,6 @@ $text_color_map = [
                         $tl_name = isset($emp_names[$emp['group_leader_id']]) ? $emp_names[$emp['group_leader_id']] : '-';
                     
                         // Calculate summary values for this employee
-                        $calendar_days = $days_in_month;
                         $weekend_count = 0;
                         $public_holiday_count = 0;
                         $before_onboarding_count = 0;
@@ -337,6 +399,7 @@ $text_color_map = [
                         $sick_leave_count = 0;
                         $annual_leave_count = 0;
                         $emergency_leave_count = 0;
+                        $unpaid_leave_count = 0;
                         
                         $onboarding_time = $emp['onboarding_date'] ? strtotime($emp['onboarding_date']) : 0;
                         
@@ -356,9 +419,9 @@ $text_color_map = [
                             } 
                             // 2. Check manual overrides / existing logs
                             elseif (isset($attendance[$emp_id][$d])) {
-                                $att_status = strtoupper($attendance[$emp_id][$d]);
-                                if (in_array($att_status, ['P', 'PRESENT'])) {
-                                    $status = 'P';
+                                $att_status = strtoupper(trim($attendance[$emp_id][$d]));
+                                if (in_array($att_status, ['P', 'PRESENT', 'LATE'])) {
+                                    $status = ($att_status == 'LATE') ? 'LATE' : 'P';
                                     $present_count++;
                                 } elseif (in_array($att_status, ['A', 'ABSENT'])) {
                                     $status = 'A';
@@ -375,17 +438,21 @@ $text_color_map = [
                                 } elseif ($att_status == 'SL') {
                                     $status = 'SL';
                                     $sick_leave_count++;
-                                } elseif ($att_status == '0.5 AL') {
+                                } elseif (in_array($att_status, ['0.5 AL', '0.5AL'])) {
                                     $status = '0.5 AL';
                                     $present_count += 0.5;
                                     $annual_leave_count += 0.5;
-                                } elseif ($att_status == '0.5 SL') {
+                                } elseif (in_array($att_status, ['0.5 SL', '0.5SL'])) {
                                     $status = '0.5 SL';
                                     $present_count += 0.5;
                                     $sick_leave_count += 0.5;
-                                } elseif ($att_status == '0.5UPL') {
+                                } elseif (in_array($att_status, ['0.5UPL', '0.5 UPL'])) {
                                     $status = '0.5UPL';
                                     $present_count += 0.5;
+                                    $unpaid_leave_count += 0.5;
+                                } elseif ($att_status == 'UPL') {
+                                    $status = 'UPL';
+                                    $unpaid_leave_count++;
                                 } elseif (in_array($att_status, ['HD', '0.5'])) {
                                     $status = $att_status;
                                     $present_count += 0.5;
@@ -394,6 +461,12 @@ $text_color_map = [
                                     $emergency_leave_count++;
                                 } else {
                                     $status = $att_status; // UPL, HL, etc. from override
+                                    if (strpos($status, '0.5UPL') !== false || strpos($status, '0.5 UPL') !== false) {
+                                        $unpaid_leave_count += 0.5;
+                                        $present_count += 0.5;
+                                    } elseif (strpos($status, 'UPL') !== false) {
+                                        $unpaid_leave_count += 1;
+                                    }
                                 }
                             } 
                             // 3. Check Public Holidays from DB
@@ -409,8 +482,26 @@ $text_color_map = [
                             // 5. Check leaves
                             elseif (isset($leaves[$emp_id][$d])) {
                                 $status = $leaves[$emp_id][$d];
-                                if ($status == 'AL') $annual_leave_count++;
-                                elseif ($status == 'SL') $sick_leave_count++;
+                                if ($status == 'AL') {
+                                    $annual_leave_count++;
+                                } elseif ($status == 'SL') {
+                                    $sick_leave_count++;
+                                } elseif ($status == 'UPL') {
+                                    $unpaid_leave_count++;
+                                } elseif (in_array($status, ['0.5 AL', '0.5AL'])) {
+                                    $present_count += 0.5;
+                                    $annual_leave_count += 0.5;
+                                } elseif (in_array($status, ['0.5 SL', '0.5SL'])) {
+                                    $present_count += 0.5;
+                                    $sick_leave_count += 0.5;
+                                } elseif (in_array($status, ['0.5UPL', '0.5 UPL'])) {
+                                    $present_count += 0.5;
+                                    $unpaid_leave_count += 0.5;
+                                } elseif (in_array($status, ['HD', '0.5'])) {
+                                    $present_count += 0.5;
+                                } elseif ($status == 'EMERGENCY') {
+                                    $emergency_leave_count++;
+                                }
                             } 
                             // 6. Default to Absent if it's a weekday in the past without records
                             else {
@@ -425,9 +516,10 @@ $text_color_map = [
                             $daily_status[$d] = $status;
                         }
                         
-                        // Math logic
-                        $working_days = $present_count + $annual_leave_count + $sick_leave_count; // Simplified logic, adjust as needed
-                        $pay_days = $working_days + $public_holiday_count + $weekend_count; 
+                        // Calendar Days is strictly the total days in the month
+                        $calendar_days = $days_in_month;
+                        $working_days = $present_count + $annual_leave_count + $sick_leave_count + $emergency_leave_count;
+                        $pay_days = $calendar_days - $public_holiday_count - $weekend_count; 
                         
                     ?>
                     <tr>
@@ -447,6 +539,7 @@ $text_color_map = [
                         <td><?= $sick_leave_count ?></td>
                         <td><?= $annual_leave_count ?></td>
                         <td><?= $emergency_leave_count ?></td>
+                        <td><?= $unpaid_leave_count ?></td>
                         
                         <?php for($d=1; $d<=$days_in_month; $d++): 
                             $st = $daily_status[$d];
@@ -454,8 +547,9 @@ $text_color_map = [
                             $tc = isset($text_color_map[$st]) ? $text_color_map[$st] : '#333333';
                             $text = $st;
                             $cell_date = sprintf("%04d-%02d-%02d", $selected_year, $selected_month, $d);
+                            $editable_class = $can_edit_calendar ? 'editable-cell' : '';
                         ?>
-                            <td class="editable-cell date-col" data-emp="<?= htmlspecialchars($emp_id) ?>" data-date="<?= $cell_date ?>" data-val="<?= $text ?>" data-status="<?= $st ?>" style="background-color: <?= $bg ?>; color: <?= $tc ?>; font-weight: 600; cursor: pointer; position: relative;">
+                            <td class="<?= $editable_class ?> date-col" data-emp="<?= htmlspecialchars($emp_id) ?>" data-date="<?= $cell_date ?>" data-val="<?= $text ?>" data-status="<?= $st ?>" style="background-color: <?= $bg ?>; color: <?= $tc ?>; font-weight: 600; <?= $can_edit_calendar ? 'cursor: pointer;' : '' ?> position: relative;">
                                 <?= $text ?>
                             </td>
                         <?php endfor; ?>
@@ -466,49 +560,7 @@ $text_color_map = [
         </div>
     </div>
 
-    <!-- Import Modal -->
-    <div id="importModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
-        <div style="background:white; padding:24px; border-radius:12px; width:400px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
-            <h2 class="text-slate-900" style="margin-top:0; ">Import Attendance Overrides</h2>
-            <p class="text-slate-500" style=" font-size:14px;">Upload your monthly calendar CSV export to override the attendance records.</p>
-            <form action="import_attendance.php" method="POST" enctype="multipart/form-data">
-                <div style="display: flex; gap: 15px; margin-top: 15px;">
-                    <div style="flex: 1;">
-                        <label style="display:block; font-weight:600; font-size:13px; margin-bottom:5px;">Month</label>
-                        <select name="month" required style="width:100%; padding:8px; border-radius:6px; border:1px solid #cbd5e1;">
-                            <?php
-                            for ($m=1; $m<=12; $m++) {
-                                $monthName = date('F', mktime(0, 0, 0, $m, 10));
-                                $selected = ($m == $selected_month) ? 'selected' : '';
-                                echo "<option value='$m' $selected>$monthName</option>";
-                            }
-                            ?>
-                        </select>
-                    </div>
-                    <div style="flex: 1;">
-                        <label style="display:block; font-weight:600; font-size:13px; margin-bottom:5px;">Year</label>
-                        <select name="year" required style="width:100%; padding:8px; border-radius:6px; border:1px solid #cbd5e1;">
-                            <?php
-                            for ($y=$selected_year-1; $y<=$selected_year+2; $y++) {
-                                $selected = ($y == $selected_year) ? 'selected' : '';
-                                echo "<option value='$y' $selected>$y</option>";
-                            }
-                            ?>
-                        </select>
-                    </div>
-                </div>
-                <input type="file" name="csv_file" accept=".csv" required style="display:block; margin:20px 0; width:100%;">
-                <div style="display:flex; gap:10px; justify-content:flex-end;">
-                    <button type="button" class="btn btn-outline" onclick="document.getElementById('importModal').style.display='none'">Cancel</button>
-                    <button type="submit" class="btn">Upload & Import</button>
-                </div>
-            </form>
-        </div>
-    </div>
-    
-
-
-    <script>
+<script>
     document.addEventListener('DOMContentLoaded', () => {
         const colorMap = <?= json_encode($color_map) ?>;
         const textColorMap = <?= json_encode($text_color_map) ?>;
@@ -568,7 +620,7 @@ $text_color_map = [
                     const newVal = select.value;
                     this.innerHTML = 'Saving...';
                     
-                    fetch('admin_attendance', {
+                    fetch(window.location.pathname, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                         body: new URLSearchParams({
@@ -657,45 +709,6 @@ $text_color_map = [
         }
     }
     </script>
-
-    <!-- OVERRIDE MODAL -->
-    <div id="overrideModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.5); backdrop-filter:blur(4px); align-items:center; justify-content:center; z-index:1000;">
-        <div class="modal-box" style="background:#fff; padding:30px; border-radius:16px; width:400px; max-width:90%; position:relative; box-shadow:0 10px 25px rgba(0,0,0,0.1);">
-            <button type="button" onclick="document.getElementById('overrideModal').style.display='none'" style="position:absolute; top:20px; right:20px; background:none; border:none; font-size:20px; cursor:pointer; color:#94a3b8;">&times;</button>
-            <h3 style="margin-top:0; margin-bottom:20px; color:#0f172a;">Override Clock In/Out</h3>
-            <form method="POST" action="">
-                <input type="hidden" name="action" value="override_time">
-                
-                <div style="margin-bottom:15px;">
-                    <label style="display:block; font-weight:600; font-size:13px; color:#475569; margin-bottom:5px;">Employee</label>
-                    <select name="emp_id" required style="width:100%; padding:10px; border-radius:8px; border:1px solid #cbd5e1; outline:none;">
-                        <option value="" disabled selected>-- Select an employee --</option>
-                        <?php foreach($emp_names as $e_id => $e_name): ?>
-                            <option value="<?= htmlspecialchars($e_id) ?>"><?= htmlspecialchars($e_name) ?> (<?= htmlspecialchars($e_id) ?>)</option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-
-                <div style="margin-bottom:15px;">
-                    <label style="display:block; font-weight:600; font-size:13px; color:#475569; margin-bottom:5px;">Date</label>
-                    <input type="date" name="date" required style="width:100%; padding:10px; border-radius:8px; border:1px solid #cbd5e1; outline:none;">
-                </div>
-
-                <div style="display: flex; gap: 15px; margin-bottom: 20px;">
-                    <div style="flex: 1;">
-                        <label style="display:block; font-weight:600; font-size:13px; color:#475569; margin-bottom:5px;">Clock In Time</label>
-                        <input type="time" name="clock_in" style="width:100%; padding:10px; border-radius:8px; border:1px solid #cbd5e1; outline:none;">
-                    </div>
-                    <div style="flex: 1;">
-                        <label style="display:block; font-weight:600; font-size:13px; color:#475569; margin-bottom:5px;">Clock Out Time</label>
-                        <input type="time" name="clock_out" style="width:100%; padding:10px; border-radius:8px; border:1px solid #cbd5e1; outline:none;">
-                    </div>
-                </div>
-
-                <button type="submit" style="width:100%; padding:12px; background:#3b82f6; color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer;">Save Override</button>
-            </form>
-        </div>
-    </div>
 
 </body>
 </html>

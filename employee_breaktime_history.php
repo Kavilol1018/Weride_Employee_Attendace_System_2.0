@@ -54,8 +54,8 @@ if (isset($_GET['export_csv'])) {
             
             fputcsv($output, array(
                 date('M d, Y', strtotime($row['break_start'])),
-                date('h:i A', strtotime($row['break_start'])),
-                $row['break_end'] ? date('h:i A', strtotime($row['break_end'])) : '--',
+                date('H:i', strtotime($row['break_start'])),
+                $row['break_end'] ? date('H:i', strtotime($row['break_end'])) : '--',
                 $duration,
                 $status
             ));
@@ -263,8 +263,8 @@ if (isset($_GET['export_csv'])) {
 
                                 echo "<tr>";
                                 echo "<td style='color: #0f172a; font-weight: 600;'>" . date('M d, Y', strtotime($row['break_start'])) . "</td>";
-                                echo "<td style='font-weight: 500;'>" . date('h:i A', strtotime($row['break_start'])) . "</td>";
-                                echo "<td style='font-weight: 500;'>" . ($row['break_end'] ? date('h:i A', strtotime($row['break_end'])) : '--') . "</td>";
+                                echo "<td style='font-weight: 500;'>" . date('H:i', strtotime($row['break_start'])) . "</td>";
+                                echo "<td style='font-weight: 500;'>" . ($row['break_end'] ? date('H:i', strtotime($row['break_end'])) : '--') . "</td>";
                                 $duration_style = $is_overtime ? "color: #ef4444; font-weight: 700;" : "color: #059669; font-weight: 600;";
                                 echo "<td style='$duration_style'>" . $duration . " min" . ($is_overtime ? " ⚠️" : "") . "</td>";
                                 echo "<td><span class='badge " . ($is_overtime ? "badge-overtime" : "badge-ok") . "'>" . ($is_overtime ? "Overtime" : "Within Limit") . "</span></td>";

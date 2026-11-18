@@ -36,7 +36,7 @@ while($e = mysqli_fetch_assoc($emp_dropdown_res)){
 mysqli_query($conn, "UPDATE system_alerts SET is_read = 1 WHERE is_read = 0");
 
 // Fetch violations
-$violation_sql = "SELECT a.*, e.name, e.department 
+$violation_sql = "SELECT a.*, e.name, e.department, e.shift_hour 
                   FROM attendance_logs a 
                   JOIN employees e ON a.emp_id = e.emp_id 
                   WHERE a.date BETWEEN '$start_date' AND '$end_date' 
@@ -58,7 +58,7 @@ $violation_result = mysqli_query($conn, $violation_sql);
     <!-- Select2 -->
     
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
         body { display: flex; height: 100vh; background-color: #f8fafc; color: #0f172a; }
         .main-content { flex: 1; padding: 40px; overflow-y: auto; }
         .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 15px; }
@@ -169,8 +169,35 @@ $violation_result = mysqli_query($conn, $violation_sql);
                     </tr>
                 </thead>
                 <tbody>
-                    <?php if(mysqli_num_rows($violation_result) > 0): ?>
-                        <?php while($row = mysqli_fetch_assoc($violation_result)): ?>
+                    <?php 
+                    $violations_rendered = 0;
+                    if(mysqli_num_rows($violation_result) > 0): 
+                        while($row = mysqli_fetch_assoc($violation_result)): 
+                            // Validate whether flag is legitimately Late or Early against employee's shift_hour
+                            $shift = !empty($row['shift_hour']) ? $row['shift_hour'] : '09:00-18:00';
+                            $shift_parts = explode('-', $shift);
+                            $shift_start = trim($shift_parts[0] ?? '09:00');
+                            $shift_end = trim($shift_parts[1] ?? '18:00');
+
+                            $is_late = ($row['clock_in'] && date('H:i', strtotime($row['clock_in'])) > $shift_start);
+                            $is_early = ($row['clock_out'] && date('H:i', strtotime($row['clock_out'])) < $shift_end);
+
+                            $expected_flag = 'None';
+                            if ($is_late && $is_early) $expected_flag = 'Both';
+                            elseif ($is_late) $expected_flag = 'Late';
+                            elseif ($is_early) $expected_flag = 'Early';
+
+                            // Auto-heal stale or incorrect flag in DB
+                            if ($row['flag'] !== $expected_flag) {
+                                mysqli_query($conn, "UPDATE attendance_logs SET flag = '$expected_flag' WHERE id = " . (int)$row['id']);
+                                $row['flag'] = $expected_flag;
+                            }
+
+                            if ($row['flag'] === 'None') {
+                                continue; // Skip rendering false positives!
+                            }
+                            $violations_rendered++;
+                    ?>
                         <tr>
                             <td><strong><?= date('d M Y', strtotime($row['date'])) ?></strong></td>
                             <td>
@@ -179,10 +206,10 @@ $violation_result = mysqli_query($conn, $violation_sql);
                             </td>
                             <td><?= htmlspecialchars($row['department'] ?? 'General') ?></td>
                             <td style="color: <?= in_array($row['flag'], ['Late', 'Both']) ? '#d97706' : '#10b981' ?>; font-weight: 600;">
-                                <?= $row['clock_in'] ? date('h:i A', strtotime($row['clock_in'])) : '-' ?>
+                                <?= $row['clock_in'] ? date('H:i', strtotime($row['clock_in'])) : '-' ?>
                             </td>
                             <td style="color: <?= in_array($row['flag'], ['Early', 'Both']) ? '#ef4444' : '#10b981' ?>; font-weight: 600;">
-                                <?= $row['clock_out'] ? date('h:i A', strtotime($row['clock_out'])) : '-' ?>
+                                <?= $row['clock_out'] ? date('H:i', strtotime($row['clock_out'])) : '-' ?>
                             </td>
                             <td>
                                 <?php if($row['flag'] == 'Both'): ?>
@@ -198,7 +225,9 @@ $violation_result = mysqli_query($conn, $violation_sql);
                             </td>
                         </tr>
                         <?php endwhile; ?>
-                    <?php else: ?>
+                    <?php endif; ?>
+                    
+                    <?php if ($violations_rendered === 0): ?>
                         <tr>
                             <td colspan="6" class="text-slate-500" style="text-align: center; padding: 40px; ">
                                 <div style="font-size: 40px; margin-bottom: 10px;">🎉</div>

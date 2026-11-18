@@ -14,7 +14,7 @@ $filter_emp_id = isset($_GET['filter_emp_id']) ? mysqli_real_escape_string($conn
 
 $view_scope = isset($_GET['view_scope']) ? $_GET['view_scope'] : 'team';
 $gl_emp_id = $_SESSION['emp_id'];
-$gl_filter_sql = ($view_scope === 'all') ? "" : " AND e.group_leader_id = '$gl_emp_id' ";
+$gl_filter_sql = ($view_scope === 'all') ? "" : " AND (e.group_leader_id = '$gl_emp_id' OR e.role = 'gl') ";
 $departments = [];
 // -------------------------
 
@@ -67,11 +67,10 @@ $available_count = mysqli_fetch_assoc(mysqli_query($conn, "
     $gl_filter_sql
 "))['cnt'];
 
-$absent_count = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM attendance_logs al JOIN employees e ON al.emp_id = e.emp_id WHERE al.date = '$filter_date' AND al.status = 'A' $gl_filter_sql"))['cnt'];
 $leave_count = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(DISTINCT lr.emp_id) as cnt FROM leave_requests lr JOIN employees e ON lr.emp_id = e.emp_id WHERE lr.status = 'approved' AND lr.start_date <= '$filter_date' AND lr.end_date >= '$filter_date' $gl_filter_sql"))['cnt'];
-
-$not_clocked_in_count = $total_employees - $available_count - $on_break_count - $absent_count - $leave_count;
-if ($not_clocked_in_count < 0) $not_clocked_in_count = 0;
+$clocked_in_count = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(DISTINCT al.emp_id) as cnt FROM attendance_logs al JOIN employees e ON al.emp_id = e.emp_id WHERE al.date = '$filter_date' AND al.clock_in IS NOT NULL AND al.status != 'A' $gl_filter_sql"))['cnt'];
+$absent_count = max(0, $total_employees - $clocked_in_count - $leave_count);
+$not_clocked_in_count = 0;
 
 // MANPOWER DATA: All employees with their current break status
 $manpower_sql = "
@@ -109,6 +108,9 @@ $manpower_result = mysqli_query($conn, $manpower_sql);
 
 // TODAY'S COMPLETED BREAKS
 $today_breaks = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM lunch_breaks lb JOIN employees e ON lb.employee_id = e.emp_id WHERE lb.status = 'returned' AND DATE(lb.break_start) = CURDATE() $gl_filter_sql"))['cnt'];
+
+// TODAY'S COMPLETED SHORT BREAKS
+$today_short_breaks = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM short_breaks sb JOIN employees e ON sb.emp_id = e.emp_id WHERE sb.status = 'returned' AND DATE(sb.break_start) = CURDATE() $gl_filter_sql"))['cnt'];
 ?>
 
 <!DOCTYPE html>
@@ -258,10 +260,17 @@ $today_breaks = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt F
                     </div>
                 </div>
                 <div class="premium-stat-card">
-                    <div class="icon-box text-green-600" style=" font-size: 24px;">📊</div>
+                    <div class="icon-box text-red-600" style=" font-size: 24px;">❌</div>
                     <div class="info-area">
-                        <div class="info-title">Meals Today</div>
-                        <div class="info-value"><?php echo $today_breaks; ?></div>
+                        <div class="info-title">Absentee</div>
+                        <div class="info-value text-red-600"><?php echo $absent_count; ?></div>
+                    </div>
+                </div>
+                <div class="premium-stat-card">
+                    <div class="icon-box text-purple-600" style=" font-size: 24px;">☕</div>
+                    <div class="info-area">
+                        <div class="info-title">Breaks Today</div>
+                        <div class="info-value"><?php echo $today_short_breaks; ?></div>
                     </div>
                 </div>
             </div>
@@ -360,7 +369,7 @@ $today_breaks = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt F
                                 else $rem_text .= "S: " . $sb_remaining . "m";
 
                                 if ($is_on_break && $row['break_start']) {
-                                    $break_start_display = date('h:i A', strtotime($row['break_start']));
+                                    $break_start_display = date('H:i', strtotime($row['break_start']));
                                     if ($row['break_type'] === 'Short Break') {
                                         $elapsed_text = $sb_elapsed . ' min';
                                         if ($sb_elapsed >= 30) $elapsed_class = 'elapsed-text overtime';
@@ -370,16 +379,16 @@ $today_breaks = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt F
                                     }
                                 }
 
-                                $type_colors = [
-                                    'Full time' => ['bg' => '#ecfdf5', 'text' => '#059669'],
-                                    'Intern' => ['bg' => '#fdf4ff', 'text' => '#a855f7'],
-                                ];
-                                $color = $type_colors[$row['employment_type']] ?? ['bg' => '#f1f5f9', 'text' => '#475569'];
+                                $is_intern = (stripos($row['employment_type'] ?? '', 'intern') !== false);
+                                $color = $is_intern 
+                                    ? ['bg' => '#f3e8ff', 'text' => '#7e22ce'] 
+                                    : ['bg' => '#eff6ff', 'text' => '#2563eb'];
+                                $display_type = $is_intern ? 'Intern' : 'Full Time';
 
                                 $elapsed_minutes = ($row['break_type'] === 'Short Break') ? $sb_elapsed : $lb_elapsed;
                                 $limit_arg = ($row['break_type'] === 'Short Break') ? 30 : $lb_limit_mins;
                                 $onclick = $is_on_break 
-                                    ? "onclick=\"openFloatingBox('" . htmlspecialchars($row['name'], ENT_QUOTES) . "', '" . htmlspecialchars($row['employment_type'], ENT_QUOTES) . "', '$break_start_display', '$elapsed_minutes', '" . htmlspecialchars($row['emp_id'], ENT_QUOTES) . "', '" . htmlspecialchars($row['break_type'], ENT_QUOTES) . "', " . $limit_arg . ")\"" 
+                                    ? "onclick=\"openFloatingBox('" . htmlspecialchars($row['name'], ENT_QUOTES) . "', '" . htmlspecialchars($display_type, ENT_QUOTES) . "', '$break_start_display', '$elapsed_minutes', '" . htmlspecialchars($row['emp_id'], ENT_QUOTES) . "', '" . htmlspecialchars($row['break_type'], ENT_QUOTES) . "', " . $limit_arg . ")\"" 
                                     : "";
                                 $row_class = $is_on_break ? "class='clickable'" : "";
 
@@ -387,10 +396,8 @@ $today_breaks = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt F
                                 $row_status = '';
                                 if ($row['leave_status']) {
                                     $row_status = 'On Leave';
-                                } else if ($row['absent_status'] === 'A') {
+                                } else if (empty($row['clock_in_time']) || $row['absent_status'] === 'A') {
                                     $row_status = 'Absent';
-                                } else if (empty($row['clock_in_time'])) {
-                                    $row_status = 'Not Clocked In';
                                 } else if ($has_clocked_out) {
                                     $shift_parts_end = explode('-', $row['shift_hour'] ?? '09:00 - 18:00');
                                     $shift_end = trim($shift_parts_end[1] ?? '18:00');
@@ -410,15 +417,13 @@ $today_breaks = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt F
                                 }
 
                                 echo "<tr $row_class $onclick data-status='" . htmlspecialchars($row_status) . "'>";
-                                echo "<td style='font-weight: 600; color: #0f172a;'>" . htmlspecialchars($row['name']) . "</td>";
-                                echo "<td><span style='background: {$color['bg']}; padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; color: {$color['text']};'>" . htmlspecialchars($row['employment_type']) . "</span></td>";
+                                echo "<td style='font-weight: 600; color: #0f172a; text-transform: uppercase;'>" . htmlspecialchars($row['name']) . "</td>";
+                                echo "<td><span style='background: {$color['bg']}; padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; color: {$color['text']};'>$display_type</span></td>";
                                 
                                 if ($row['leave_status']) {
-                                    echo "<td><span class='badge' style='background:#fef2f2; color:#b91c1c;'>On Leave</span></td>";
-                                } else if ($row['absent_status'] === 'A') {
+                                    echo "<td><span class='badge' style='background:#fef2f2; color:#691338;'>On Leave</span></td>";
+                                } else if (empty($row['clock_in_time']) || $row['absent_status'] === 'A') {
                                     echo "<td><span class='badge' style='background:#fef2f2; color:#ef4444;'>Absent</span></td>";
-                                } else if (empty($row['clock_in_time'])) {
-                                    echo "<td><span class='badge' style='background:#f1f5f9; color:#64748b;'>Not Clocked In</span></td>";
                                 } else if ($has_clocked_out) {
                                     if ($row_status === 'Left Early') {
                                         echo "<td><span class='badge' style='background:#fef3c7; color:#d97706;'>Left Early</span></td>";
@@ -431,8 +436,8 @@ $today_breaks = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt F
                                     echo "<td><span class='badge bg-available'>Available</span></td>";
                                 }
                                 
-                                $c_in_display = $row['clock_in_time'] ? date('h:i A', strtotime($row['clock_in_time'])) : '--';
-                                $c_out_display = $row['clock_out_time'] ? date('h:i A', strtotime($row['clock_out_time'])) : '--';
+                                $c_in_display = $row['clock_in_time'] ? date('H:i', strtotime($row['clock_in_time'])) : '--';
+                                $c_out_display = $row['clock_out_time'] ? date('H:i', strtotime($row['clock_out_time'])) : '--';
                                 
                                 echo "<td style='font-size: 13px; font-weight: 600; color: #475569;'>" . $c_in_display . "</td>";
                                 echo "<td style='font-size: 13px; font-weight: 600; color: #475569;'>" . $c_out_display . "</td>";
@@ -533,10 +538,10 @@ $today_breaks = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt F
         new Chart(ctx, {
             type: 'doughnut',
             data: {
-                labels: ['Available', 'On Break', 'Absent', 'On Leave', 'Not Clocked In'],
+                labels: ['Available', 'On Break', 'Absent', 'On Leave'],
                 datasets: [{
-                    data: [<?php echo $available_count; ?>, <?php echo $on_break_count; ?>, <?php echo $absent_count; ?>, <?php echo $leave_count; ?>, <?php echo $not_clocked_in_count; ?>],
-                    backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#94a3b8', '#cbd5e1'],
+                    data: [<?php echo $available_count; ?>, <?php echo $on_break_count; ?>, <?php echo $absent_count; ?>, <?php echo $leave_count; ?>],
+                    backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#691338'],
                     borderWidth: 0,
                     hoverOffset: 4
                 }]

@@ -56,8 +56,30 @@ button, .btn, a, summary {
 }
 
 /* ==========================================================================
-   MOBILE RESPONSIVENESS OVERRIDES
+   MOBILE RESPONSIVENESS OVERRIDES & SMART CSS GRID
    ========================================================================== */
+
+/* SMART CSS GRID OVERRIDE (Replaces inline body { display: flex } in all PHP files) */
+body:not(.login-page) {
+    display: grid !important;
+    grid-template-columns: 280px 1fr !important;
+    transition: grid-template-columns 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    height: 100vh !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+body.sidebar-collapsed:not(.login-page) {
+    grid-template-columns: 0px 1fr !important;
+}
+
+@media (max-width: 768px) {
+    body:not(.login-page) {
+        grid-template-columns: 1fr !important; /* Mobile collapses to 1 column */
+    }
+}
+
 
 /* Employee Overview Cards */
 .emp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; margin-bottom: 30px; }
@@ -69,6 +91,55 @@ button, .btn, a, summary {
 
 .text-muted { color: #64748b; }
 
+/* ==========================================================================
+   TABLET BREAKPOINT (≤ 1024px)
+   Adjusts multi-column layouts to fewer columns on tablets
+   ========================================================================== */
+@media (max-width: 1024px) {
+    /* Stats grid: 2 columns on tablet instead of auto-fit */
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+
+    /* Employee grid: 2 columns on tablet */
+    .emp-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+
+    /* Profile grid: stack to 1 column on tablet */
+    .profile-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Filter grid: 2 columns on tablet */
+    .filter-grid {
+        grid-template-columns: 1fr 1fr !important;
+    }
+
+    /* Dashboard sidebar+chart layout (inline 350px 1fr) → stack */
+    [style*="grid-template-columns: 350px 1fr"] {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Layout grid (sidebar + content like public_holidays) → stack */
+    .layout-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Reduce main content padding */
+    .content {
+        padding: 0 24px 30px 24px !important;
+    }
+
+    .topbar {
+        padding: 20px 24px !important;
+    }
+}
+
+/* ==========================================================================
+   SMALL TABLET / LARGE MOBILE BREAKPOINT (≤ 768px)
+   Compact layout for phones — stat cards stay 2-col, forms stack
+   ========================================================================== */
 @media (max-width: 768px) {
     /* Make tables horizontally scrollable if they overflow */
     .table-container, .card, .report-section {
@@ -79,31 +150,107 @@ button, .btn, a, summary {
     }
     
     table {
-        min-width: 600px; /* Ensure tables don't squish too much */
+        min-width: 600px;
     }
 
-    /* Stack grid layouts (like stats) to 1 column on mobile */
-    .stats-grid, .grid-2, .form-row {
+    /* STAT CARDS: Keep 2 columns on mobile — they're compact enough */
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 12px !important;
+        margin-bottom: 16px !important;
+    }
+
+    /* EMPLOYEE CARDS: Keep 2 columns on mobile */
+    .emp-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 12px !important;
+        margin-bottom: 16px !important;
+    }
+
+    /* FORMS & WIDE CONTENT: Stack to 1 column */
+    .grid-2, .form-row, .filter-grid, .layout-grid, .profile-grid {
         grid-template-columns: 1fr !important;
-        display: flex !important;
-        flex-direction: column !important;
+        display: grid !important;
     }
 
-    /* Adjust main content padding for smaller screens */
+    /* Modal form grids (inline 1fr 1fr / repeat(2, 1fr)) → 1 column */
+    [style*="grid-template-columns: 1fr 1fr"],
+    [style*="grid-template-columns: repeat(2, 1fr)"] {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Calendar grid: shrink gaps but keep 7 columns */
+    .calendar-grid {
+        grid-template-columns: repeat(7, 1fr) !important;
+        gap: 2px !important;
+        font-size: 11px !important;
+    }
+
+    /* Premium stat cards: compact for mobile */
+    .premium-stat-card {
+        min-width: unset !important;
+        width: 100% !important;
+        padding: 16px !important;
+        gap: 12px !important;
+        border-radius: 12px !important;
+    }
+
+    .premium-stat-card .icon-box {
+        width: 40px !important;
+        height: 40px !important;
+        border-radius: 10px !important;
+        font-size: 18px !important;
+    }
+
+    .premium-stat-card .info-title {
+        font-size: 11px !important;
+    }
+
+    .premium-stat-card .info-value {
+        font-size: 17px !important;
+    }
+
+    /* Stat cards (non-premium) compact */
+    .stat-card {
+        padding: 14px 16px !important;
+        column-gap: 10px !important;
+        border-radius: 10px !important;
+    }
+
+    .stat-icon {
+        width: 38px !important;
+        height: 38px !important;
+        font-size: 18px !important;
+        border-radius: 10px !important;
+    }
+
+    .stat-value {
+        font-size: 18px !important;
+    }
+
+    .stat-title {
+        font-size: 10px !important;
+    }
+
+    /* Topbar */
     .topbar {
-        padding: 15px 20px !important;
-        flex-direction: column;
-        align-items: flex-start;
+        padding: 15px 16px !important;
+        flex-direction: row;
+        align-items: center;
         gap: 10px;
     }
 
     .content {
-        padding: 0 15px 20px 15px !important;
+        padding: 0 12px 20px 12px !important;
+    }
+
+    .page-title {
+        font-size: 20px !important;
     }
 
     /* Modals should be full width with some margin */
     .modal-box {
-        width: 90% !important;
+        width: 92% !important;
         padding: 20px !important;
         margin: 20px auto;
     }
@@ -112,6 +259,188 @@ button, .btn, a, summary {
     .login-container {
         padding: 30px 20px !important;
         width: 90% !important;
+    }
+
+    /* Import grid: stack */
+    .import-grid {
+        flex-direction: column !important;
+    }
+
+    /* Reduce section spacing globally */
+    .table-header {
+        margin-bottom: 4px !important;
+    }
+
+    .table-title {
+        font-size: 16px !important;
+    }
+
+    /* Refresh bar / live badge compact */
+    .refresh-bar {
+        font-size: 11px !important;
+    }
+
+    /* Employee/GL/TL Dashboard: info & action cards → wrap to 2-col grid */
+    .info-cards, .action-cards {
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px !important;
+    }
+
+    .info-card {
+        padding: 14px !important;
+        gap: 10px !important;
+        border-radius: 12px !important;
+    }
+
+    .info-icon {
+        width: 36px !important;
+        height: 36px !important;
+    }
+
+    .info-label {
+        font-size: 10px !important;
+    }
+
+    .info-value {
+        font-size: 15px !important;
+    }
+
+    .action-card {
+        padding: 24px 14px !important;
+        border-radius: 14px !important;
+    }
+
+    .timer-display {
+        font-size: 32px !important;
+    }
+
+    .timer-subtext {
+        font-size: 12px !important;
+        margin-bottom: 20px !important;
+    }
+
+    .timer-circle {
+        width: 60px !important;
+        height: 60px !important;
+        margin-bottom: 14px !important;
+    }
+
+    .timer-circle svg {
+        width: 24px !important;
+        height: 24px !important;
+    }
+
+    .btn-action {
+        padding: 12px !important;
+        font-size: 14px !important;
+    }
+
+    /* Topbar: wrap buttons below title on mobile */
+    .topbar {
+        flex-wrap: wrap !important;
+    }
+
+    .topbar-right {
+        gap: 8px !important;
+        flex-wrap: wrap !important;
+    }
+
+    .topbar-right .btn-primary,
+    .topbar-right .btn-danger {
+        padding: 8px 14px !important;
+        font-size: 12px !important;
+    }
+
+    .avatar {
+        width: 30px !important;
+        height: 30px !important;
+        font-size: 13px !important;
+    }
+
+    /* Status pill compact */
+    .status-pill {
+        font-size: 11px !important;
+        padding: 4px 12px !important;
+        margin-bottom: 16px !important;
+    }
+
+    /* Override request link */
+    .info-action {
+        font-size: 11px !important;
+        top: 10px !important;
+        right: 10px !important;
+    }
+}
+
+/* ==========================================================================
+   SMALL PHONE BREAKPOINT (≤ 480px)
+   Extra compact for small screens
+   ========================================================================== */
+@media (max-width: 480px) {
+    /* Stats grid: still 2 columns but even tighter */
+    .stats-grid {
+        gap: 8px !important;
+        margin-bottom: 12px !important;
+    }
+
+    /* Action cards (timers) need full width on small phones */
+    .action-cards {
+        grid-template-columns: 1fr !important;
+    }
+
+
+    .emp-grid {
+        gap: 8px !important;
+    }
+
+    /* Stat cards: extra compact */
+    .stat-card, .premium-stat-card {
+        padding: 12px !important;
+        gap: 8px !important;
+    }
+
+    .premium-stat-card .icon-box,
+    .stat-icon {
+        width: 34px !important;
+        height: 34px !important;
+        font-size: 16px !important;
+        border-radius: 8px !important;
+    }
+
+    .stat-value, .premium-stat-card .info-value {
+        font-size: 16px !important;
+    }
+
+    .stat-title, .premium-stat-card .info-title {
+        font-size: 9px !important;
+        letter-spacing: 0.3px !important;
+    }
+
+    /* Calendar grid: tighter */
+    .calendar-grid {
+        gap: 1px !important;
+        font-size: 10px !important;
+    }
+
+    /* Even tighter content padding */
+    .content {
+        padding: 0 8px 15px 8px !important;
+    }
+
+    .topbar {
+        padding: 12px 8px !important;
+    }
+
+    .page-title {
+        font-size: 18px !important;
+    }
+
+    /* Modal full width on small phones */
+    .modal-box {
+        width: 95% !important;
+        padding: 16px !important;
+        border-radius: 16px !important;
     }
 }
 
@@ -216,4 +545,38 @@ body.dark-mode .top-scrollbar-wrapper::-webkit-scrollbar-thumb {
 body.dark-mode .table-scroll-wrapper::-webkit-scrollbar-thumb:hover,
 body.dark-mode .top-scrollbar-wrapper::-webkit-scrollbar-thumb:hover {
     background-color: rgba(255, 255, 255, 0.25);
+}
+
+/* ==========================================================================
+   GLOBAL CIRCLE AVATAR & FRAMING RULES
+   Ensures all avatars across all dashboards, community feed, and profile preview
+   maintain a 1:1 circle frame with clean centered image fitting.
+   ========================================================================== */
+.avatar,
+.ci-avatar,
+.ci-mention-avatar,
+#avatar-preview-box,
+.profile-avatar-large {
+    aspect-ratio: 1 / 1 !important;
+    border-radius: 50% !important;
+    overflow: hidden !important;
+    flex-shrink: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.avatar img,
+.ci-avatar img,
+.ci-mention-avatar img,
+#avatar-preview-box img,
+.profile-avatar-large img {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    object-fit: cover !important;
+    object-position: center !important;
+    border-radius: 50% !important;
+    display: block !important;
 }

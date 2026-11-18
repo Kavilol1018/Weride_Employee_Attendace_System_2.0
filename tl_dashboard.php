@@ -9,7 +9,7 @@ include 'db_connect.php';
 
 $current_employee_id = $_SESSION['emp_id']; 
 
-$emp_query = mysqli_query($conn, "SELECT employment_type, lunch_window, name, annual_leave_balance, sick_leave_balance, shift_hour FROM employees WHERE emp_id = '$current_employee_id'");
+$emp_query = mysqli_query($conn, "SELECT employment_type, lunch_window, name, annual_leave_balance, sick_leave_balance, shift_hour, profile_picture FROM employees WHERE emp_id = '$current_employee_id'");
 $emp_data = mysqli_fetch_assoc($emp_query);
 $employment_type = $emp_data['employment_type'] ?? 'full_time';
 $lunch_window = $emp_data['lunch_window'] ?? '12:00-13:00';
@@ -25,11 +25,27 @@ $total_override_mins = $override_row_limit['total_override'] ? (int)$override_ro
 $total_lunch_limit = 60 + $total_override_mins;
 
 // VALIDATE IP (COMPANY WIFI)
-$allowed_ips = ['127.0.0.1', '::1', '10.22.7.117', '211.25.36.214', '113.211.196.97', '182.62.34.248'];
-$user_ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'];
-if (strpos($user_ip, ',') !== false) { $user_ip = explode(',', $user_ip)[0]; }
-$user_ip = trim($user_ip);
-$is_valid_ip = in_array($user_ip, $allowed_ips) || strpos($user_ip, '10.22.') === 0 || strpos($user_ip, 'fe80:') === 0 || strpos($user_ip, '211.25.') === 0 || strpos($user_ip, '113.211.') === 0 || strpos($user_ip, '182.62.') === 0;
+$allowed_ips = ['127.0.0.1', '::1'];
+$raw_x_forwarded = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '';
+$raw_remote = $_SERVER['REMOTE_ADDR'] ?? '';
+
+$is_valid_ip = false;
+$allowed_public_ips = ['113.211.196.97', '211.25.36.214'];
+foreach ($allowed_public_ips as $pub_ip) {
+    if (strpos($raw_x_forwarded, $pub_ip) !== false || strpos($raw_remote, $pub_ip) !== false) {
+        $is_valid_ip = true;
+    }
+}
+if (strpos($raw_x_forwarded, '10.22.') !== false || strpos($raw_remote, '10.22.') !== false) {
+    $is_valid_ip = true;
+}
+if ($raw_remote === '127.0.0.1' || $raw_remote === '::1') {
+    $is_valid_ip = true;
+}
+
+// DEVICE VALIDATION
+$user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+$is_mobile = preg_match("/(android|avantgo|blackberry|bolt|boost|cricket|docomo|fone|hiptop|mini|mobi|palm|phone|pie|tablet|up\.browser|up\.link|webos|wos)/i", $user_agent);
 
 // VALIDATE TIME (LUNCH WINDOW)
 date_default_timezone_set('Asia/Kuala_Lumpur');
@@ -75,11 +91,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // CLOCK IN ACTION
     if (isset($_POST['clock_in'])) {
         if (!$is_valid_ip) {
-            header("Location: gl_dashboard.php?msg=" . urlencode("Action Denied: Company WiFi required."));
+            header("Location: tl_dashboard.php?msg=" . urlencode("Action Denied: Company WiFi required."));
             exit();
         }
         if ($is_mobile) {
-            header("Location: gl_dashboard.php?msg=" . urlencode("Action Denied: Clock In must be done on a workstation, not a mobile device."));
+            header("Location: tl_dashboard.php?msg=" . urlencode("Action Denied: Clock In must be done on a workstation, not a mobile device."));
             exit();
         }
         
@@ -105,18 +121,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     mysqli_query($conn, "INSERT INTO system_alerts (message) VALUES ('$alert_msg')");
                 }
             }
-            header("Location: gl_dashboard.php?msg=" . urlencode("Clocked In successfully!"));
+            header("Location: tl_dashboard.php?msg=" . urlencode("Clocked In successfully!"));
             exit();
     }
 
     // CLOCK OUT ACTION
     if (isset($_POST['clock_out'])) {
         if (!$is_valid_ip) {
-            header("Location: gl_dashboard.php?msg=" . urlencode("Action Denied: Company WiFi required."));
+            header("Location: tl_dashboard.php?msg=" . urlencode("Action Denied: Company WiFi required."));
             exit();
         }
         if ($is_mobile) {
-            header("Location: gl_dashboard.php?msg=" . urlencode("Action Denied: Clock Out must be done on a workstation, not a mobile device."));
+            header("Location: tl_dashboard.php?msg=" . urlencode("Action Denied: Clock Out must be done on a workstation, not a mobile device."));
             exit();
         }
         if ($has_clocked_in) {
@@ -160,7 +176,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 mysqli_query($conn, "UPDATE short_breaks SET break_end = CURRENT_TIMESTAMP, duration_min = $duration_mins, status = 'returned' WHERE id = $bid");
             }
 
-            header("Location: gl_dashboard.php?msg=" . urlencode("Clocked Out successfully!"));
+            header("Location: tl_dashboard.php?msg=" . urlencode("Clocked Out successfully!"));
             exit();
         }
     }
@@ -180,27 +196,27 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         if (isset($_POST['force_start'])) {
             $sql = "INSERT INTO lunch_breaks (employee_id, status) VALUES ('$current_employee_id', 'on_break')";
             mysqli_query($conn, $sql);
-            header("Location: gl_dashboard.php?msg=" . urlencode("Override sent and Meal Out started!"));
+            header("Location: tl_dashboard.php?msg=" . urlencode("Override sent and Meal Out started!"));
             exit();
         } else {
-            header("Location: gl_dashboard.php?msg=" . urlencode("Override request sent to your manager."));
+            header("Location: tl_dashboard.php?msg=" . urlencode("Override request sent to your manager."));
             exit();
         }
     }
 
     if (isset($_POST['start_break'])) {
         if (!$is_valid_ip) {
-            header("Location: gl_dashboard.php?msg=" . urlencode("Action Denied: Company WiFi required."));
+            header("Location: tl_dashboard.php?msg=" . urlencode("Action Denied: Company WiFi required."));
             exit();
         }
         $sql = "INSERT INTO lunch_breaks (employee_id, status) VALUES ('$current_employee_id', 'on_break')";
         if (mysqli_query($conn, $sql)) {
-            header("Location: gl_dashboard.php?msg=" . urlencode("Meal Out successful!"));
+            header("Location: tl_dashboard.php?msg=" . urlencode("Meal Out successful!"));
             exit();
         }
     } elseif (isset($_POST['end_break'])) {
         if (!$is_valid_ip) {
-            header("Location: gl_dashboard.php?msg=" . urlencode("Action Denied: Company WiFi required."));
+            header("Location: tl_dashboard.php?msg=" . urlencode("Action Denied: Company WiFi required."));
             exit();
         }
         $sql = "UPDATE lunch_breaks SET status = 'returned', break_end = CURRENT_TIMESTAMP WHERE employee_id = '$current_employee_id' AND status = 'on_break'";
@@ -214,7 +230,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 }
             }
             
-            header("Location: gl_dashboard.php?msg=" . urlencode("Meal In successful!"));
+            header("Location: tl_dashboard.php?msg=" . urlencode("Meal In successful!"));
             exit();
         }
     }
@@ -269,12 +285,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             
             if (in_array($ext, $allowed_ext)) {
                 $upload_dir = 'uploads/medical_certificates/';
-                if (!is_dir($upload_dir)) { mkdir($upload_dir, 0777, true); }
+                $upload_abs_dir = rtrim($_SERVER['DOCUMENT_ROOT'], '/') . '/' . $upload_dir;
+                if (!is_dir($upload_abs_dir)) { mkdir($upload_abs_dir, 0755, true); }
                 $safe_name = preg_replace('/[^A-Za-z0-9]/', '', $employee_name);
                 $new_filename = $safe_name . '_' . $start_date . '_' . $end_date . '.' . $ext;
+                $dest_abs = $upload_abs_dir . $new_filename;
                 $dest = $upload_dir . $new_filename;
                 
-                if (move_uploaded_file($_FILES['medical_certificate']['tmp_name'], $dest)) {
+                if (move_uploaded_file($_FILES['medical_certificate']['tmp_name'], $dest_abs)) {
                     $mc_path = $dest;
                 } else {
                     $error = "Failed to upload medical certificate.";
@@ -285,9 +303,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
 
         if (empty($error)) {
-            $capacity_check = check_leave_capacity($conn, $start_date, $end_date, $current_employee_id);
+            $capacity_check = check_leave_capacity($conn, $start_date, $end_date, $current_employee_id, $leave_type);
             if ($capacity_check !== true) {
-                header("Location: gl_dashboard.php?msg=" . urlencode($capacity_check));
+                header("Location: tl_dashboard.php?msg=" . urlencode($capacity_check));
                 exit();
             }
 
@@ -299,30 +317,30 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $alert_msg = mysqli_real_escape_string($conn, "$employee_name ($current_employee_id) requested $leave_type.");
                 mysqli_query($conn, "INSERT INTO system_alerts (message) VALUES ('$alert_msg')");
 
-                header("Location: gl_dashboard.php?msg=" . urlencode("Leave request submitted successfully!"));
+                header("Location: tl_dashboard.php?msg=" . urlencode("Leave request submitted successfully!"));
                 exit();
             } else {
-                header("Location: gl_dashboard.php?msg=" . urlencode("Database error: " . mysqli_error($conn)));
+                header("Location: tl_dashboard.php?msg=" . urlencode("Database error: " . mysqli_error($conn)));
                 exit();
             }
         } else {
-            header("Location: gl_dashboard.php?msg=" . urlencode($error));
+            header("Location: tl_dashboard.php?msg=" . urlencode($error));
             exit();
         }
     }
     
     if (isset($_POST['start_short_break'])) {
         if (!$is_valid_ip) {
-            header("Location: gl_dashboard.php?msg=" . urlencode("Action Denied: Company WiFi required."));
+            header("Location: tl_dashboard.php?msg=" . urlencode("Action Denied: Company WiFi required."));
             exit();
         }
         $sql = "INSERT INTO short_breaks (emp_id, period, status) VALUES ('$current_employee_id', 'pre_lunch', 'on_break')";
         mysqli_query($conn, $sql);
-        header("Location: gl_dashboard.php");
+        header("Location: tl_dashboard.php");
         exit();
     } elseif (isset($_POST['end_short_break'])) {
         if (!$is_valid_ip) {
-            header("Location: gl_dashboard.php?msg=" . urlencode("Action Denied: Company WiFi required."));
+            header("Location: tl_dashboard.php?msg=" . urlencode("Action Denied: Company WiFi required."));
             exit();
         }
         $break_query = mysqli_query($conn, "SELECT id, TIMESTAMPDIFF(MINUTE, break_start, NOW()) as duration_mins FROM short_breaks WHERE emp_id = '$current_employee_id' AND status = 'on_break'");
@@ -336,7 +354,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 mysqli_query($conn, "INSERT INTO system_alerts (message) VALUES ('$alert_msg')");
             }
         }
-        header("Location: gl_dashboard.php");
+        header("Location: tl_dashboard.php");
         exit();
     }
 }
@@ -529,7 +547,8 @@ $vio_data_values = array_values($vio_data);
         .btn-primary:hover { background-color: #2563eb; }
         .btn-danger { background-color: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px; }
         .btn-secondary { background-color: #e2e8f0; color: #64748b; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: not-allowed; font-size: 14px; }
-        .avatar { width: 35px; height: 35px; background-color: #1e293b; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .avatar { width: 35px; height: 35px; background-color: #1e293b; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; overflow: hidden; flex-shrink: 0; }
+        .avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
 
         .content { padding: 0 40px 40px 40px; display: flex; flex-direction: column; gap: 20px; }
 
@@ -559,7 +578,8 @@ $vio_data_values = array_values($vio_data);
         .timer-circle.purple { background: #faf5ff; border: 1px solid #f3e8ff; color: #a855f7; }
         .timer-circle svg { width: 32px; height: 32px; }
 
-        .timer-display { font-size: 48px; font-weight: 800; color: #0f172a; line-height: 1; margin-bottom: 8px; }
+        .timer-display { font-size: 48px; font-weight: 800; color: #0f172a; line-height: 1; margin-bottom: 8px; transition: color 0.3s; }
+        .timer-display.negative { color: #ef4444 !important; }
         .timer-subtext { font-size: 14px; color: #64748b; font-weight: 500; margin-bottom: 30px; }
 
         .action-form { width: 100%; max-width: 400px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
@@ -695,7 +715,13 @@ $vio_data_values = array_values($vio_data);
                         <?php endif; ?>
                     </form>
                 <?php endif; ?>
-                <a href="profile.php" class="avatar" style="text-decoration: none;"><?php echo strtoupper(substr($employee_name, 0, 1)); ?></a>
+                <a href="profile.php" class="avatar" style="text-decoration: none;" title="My Profile">
+                    <?php if (!empty($emp_data['profile_picture']) && file_exists($emp_data['profile_picture'])): ?>
+                        <img src="<?php echo htmlspecialchars($emp_data['profile_picture']); ?>" alt="Profile">
+                    <?php else: ?>
+                        <?php echo strtoupper(substr($employee_name, 0, 1)); ?>
+                    <?php endif; ?>
+                </a>
             </div>
         </header>
 
@@ -742,8 +768,8 @@ $vio_data_values = array_values($vio_data);
                         <div class="info-label">Today's Attendance</div>
                         <div class="info-value" style="color: #10b981; font-size: 14px;">
                             <?php 
-                                $ci = !empty($today_att['clock_in']) ? date('h:i A', strtotime($today_att['clock_in'])) : '--:--';
-                                $co = !empty($today_att['clock_out']) ? date('h:i A', strtotime($today_att['clock_out'])) : '--:--';
+                                $ci = !empty($today_att['clock_in']) ? date('H:i', strtotime($today_att['clock_in'])) : '--:--';
+                                $co = !empty($today_att['clock_out']) ? date('H:i', strtotime($today_att['clock_out'])) : '--:--';
                                 echo "IN: $ci <br> OUT: $co";
                             ?>
                         </div>
@@ -855,260 +881,7 @@ $vio_data_values = array_values($vio_data);
             </div>
 
         </div>
-    
-<!-- STAT CARDS -->
-            <div class="stats-grid">
-                <div class="premium-stat-card">
-                    <div class="icon-box" style="color: #3b82f6; font-size: 24px;">👥</div>
-                    <div class="info-area">
-                        <div class="info-title">Total Employees</div>
-                        <div class="info-value"><?php echo $total_employees; ?></div>
-                    </div>
-                </div>
-                <div class="premium-stat-card">
-                    <div class="icon-box text-amber-600" style=" font-size: 24px;">🍽️</div>
-                    <div class="info-area">
-                        <div class="info-title">Currently On Break</div>
-                        <div class="info-value text-amber-600" ><?php echo $on_break_count; ?></div>
-                    </div>
-                </div>
-                <div class="premium-stat-card">
-                    <div class="icon-box text-emerald-600" style=" font-size: 24px;">✅</div>
-                    <div class="info-area">
-                        <div class="info-title">Available</div>
-                        <div class="info-value text-emerald-600" ><?php echo $available_count; ?></div>
-                    </div>
-                </div>
-                <div class="premium-stat-card">
-                    <div class="icon-box text-green-600" style=" font-size: 24px;">📊</div>
-                    <div class="info-area">
-                        <div class="info-title">Meals Today</div>
-                        <div class="info-value"><?php echo $today_breaks; ?></div>
-                    </div>
-                </div>
-            </div>
-
-            <div style="display: grid; grid-template-columns: 350px 1fr; gap: 24px; align-items: start; margin-bottom: 30px;">
-                <div id="card-availChart" class="stat-card" style="padding: 20px; height: 100%;">
-                    <h3 style="font-size: 16px; margin-bottom: 15px;">Staff Availability</h3>
-                    <div style="position: relative; height: 250px; width: 100%;">
-                        <canvas id="availChart"></canvas>
-                    </div>
-                </div>
-                
-                <!-- MANPOWER TABLE -->
-                <div id="manpower-section" class="table-container" style="padding: 0;">
-                <div class="table-header">
-                    <h3 class="table-title">Manpower Overview</h3>
-                    <span class="live-badge"><span class="live-dot"></span> LIVE</span>
-                </div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Employee</th>
-                            <th>Type</th>
-                            <th>Status</th>
-                            <th>Clock In</th>
-                            <th>Clock Out</th>
-                            <th>Status</th>
-                            <th>Elapsed</th>
-                            <th>Limit</th>
-                            <th>Remaining</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php
-                        if (mysqli_num_rows($manpower_result) > 0) {
-                            while ($row = mysqli_fetch_assoc($manpower_result)) {
-                                $is_on_break = ($row['break_status'] === 'on_break');
-                                $elapsed_text = '--';
-                                $elapsed_class = 'elapsed-text';
-                                $break_start_display = '--';
-
-                                $shift_parts = explode('-', $row['shift_hour'] ?? '09:00 - 18:00');
-                                $shift_start = trim($shift_parts[0]);
-                                $late_status_display = '--';
-                                $late_elapsed_display = '--';
-                                $late_status_color = '#94a3b8';
-                                if ($row['clock_in_time']) {
-                                    $clock_in_dt = new DateTime($row['clock_in_time']);
-                                    $clock_in_time_only = $clock_in_dt->format('H:i');
-                                    $shift_start_dt = DateTime::createFromFormat('H:i', $shift_start);
-                                    if (!$shift_start_dt) $shift_start_dt = DateTime::createFromFormat('H:i:s', $shift_start . ':00');
-                                    if ($shift_start_dt) {
-                                        if ($clock_in_time_only > $shift_start_dt->format('H:i')) {
-                                            $late_status_display = 'Late';
-                                            $late_status_color = '#ef4444';
-                                            $clock_in_minutes = ((int)$clock_in_dt->format('H') * 60) + (int)$clock_in_dt->format('i');
-                                            $shift_start_minutes = ((int)$shift_start_dt->format('H') * 60) + (int)$shift_start_dt->format('i');
-                                            $late_mins = $clock_in_minutes - $shift_start_minutes;
-                                            if ($late_mins > 0) $late_elapsed_display = $late_mins . ' min';
-                                        } else {
-                                            $late_status_display = 'On Time';
-                                            $late_status_color = '#10b981';
-                                            $late_elapsed_display = '0 min';
-                                        }
-                                    }
-                                }
-
-                                $total_override_mins = (int)$row['total_override_mins'];
-                                $lb_limit_mins = 60 + $total_override_mins;
-                                
-                                $limit_text = "L: $lb_limit_mins | S: 30";
-                                
-                                $sb_elapsed_sec = (int)$row['total_sb_elapsed_sec'];
-                                $lb_elapsed_sec = (int)$row['total_lb_elapsed_sec'];
-                                
-                                $sb_remaining_sec = (30 * 60) - $sb_elapsed_sec;
-                                $lb_remaining_sec = ($lb_limit_mins * 60) - $lb_elapsed_sec;
-
-                                $sb_remaining = floor($sb_remaining_sec / 60);
-                                $lb_remaining = floor($lb_remaining_sec / 60);
-
-                                $sb_elapsed = 30 - $sb_remaining;
-                                $lb_elapsed = $lb_limit_mins - $lb_remaining;
-
-                                if ($sb_remaining_sec < 0) {
-                                    $sb_remaining = -floor(abs($sb_remaining_sec) / 60);
-                                    $sb_elapsed = 30 + abs($sb_remaining);
-                                }
-                                if ($lb_remaining_sec < 0) {
-                                    $lb_remaining = -floor(abs($lb_remaining_sec) / 60);
-                                    $lb_elapsed = $lb_limit_mins + abs($lb_remaining);
-                                }
-                                
-                                $rem_text = "";
-                                if ($lb_remaining < 0) $rem_text .= "L: <span style='color: #ef4444'>" . abs($lb_remaining) . "m over</span> | ";
-                                else $rem_text .= "L: " . $lb_remaining . "m | ";
-                                
-                                if ($sb_remaining < 0) $rem_text .= "S: <span style='color: #ef4444'>" . abs($sb_remaining) . "m over</span>";
-                                else $rem_text .= "S: " . $sb_remaining . "m";
-
-                                if ($is_on_break && $row['break_start']) {
-                                    $break_start_display = date('h:i A', strtotime($row['break_start']));
-                                    if ($row['break_type'] === 'Short Break') {
-                                        $elapsed_text = $sb_elapsed . ' min';
-                                        if ($sb_elapsed >= 30) $elapsed_class = 'elapsed-text overtime';
-                                    } else {
-                                        $elapsed_text = $lb_elapsed . ' min';
-                                        if ($lb_elapsed >= $lb_limit_mins) $elapsed_class = 'elapsed-text overtime';
-                                    }
-                                }
-
-                                $type_colors = [
-                                    'Full time' => ['bg' => '#ecfdf5', 'text' => '#059669'],
-                                    'Intern' => ['bg' => '#fdf4ff', 'text' => '#a855f7'],
-                                ];
-                                $color = $type_colors[$row['employment_type']] ?? ['bg' => '#f1f5f9', 'text' => '#475569'];
-
-                                $elapsed_minutes = ($row['break_type'] === 'Short Break') ? $sb_elapsed : $lb_elapsed;
-                                $limit_arg = ($row['break_type'] === 'Short Break') ? 30 : $lb_limit_mins;
-                                $onclick = $is_on_break 
-                                    ? "onclick=\"openFloatingBox('" . htmlspecialchars($row['name'], ENT_QUOTES) . "', '" . htmlspecialchars($row['employment_type'], ENT_QUOTES) . "', '$break_start_display', '$elapsed_minutes', '" . htmlspecialchars($row['emp_id'], ENT_QUOTES) . "', '" . htmlspecialchars($row['break_type'], ENT_QUOTES) . "', " . $limit_arg . ")\"" 
-                                    : "";
-                                $row_class = $is_on_break ? "class='clickable'" : "";
-
-                                $has_clocked_out = !empty($row['clock_out_time']) && strpos($row['clock_out_time'], '0000-00-00') === false;
-                                $row_status = '';
-                                if ($row['leave_status']) {
-                                    $row_status = 'On Leave';
-                                } else if ($row['absent_status'] === 'A') {
-                                    $row_status = 'Absent';
-                                } else if (empty($row['clock_in_time'])) {
-                                    $row_status = 'Not Clocked In';
-                                } else if ($has_clocked_out) {
-                                    $shift_parts_end = explode('-', $row['shift_hour'] ?? '09:00 - 18:00');
-                                    $shift_end = trim($shift_parts_end[1] ?? '18:00');
-                                    $clock_out_dt = new DateTime($row['clock_out_time']);
-                                    $clock_out_time_only = $clock_out_dt->format('H:i');
-                                    $shift_end_dt = DateTime::createFromFormat('H:i', $shift_end);
-                                    if (!$shift_end_dt) $shift_end_dt = DateTime::createFromFormat('H:i:s', $shift_end . ':00');
-                                    if ($shift_end_dt && $clock_out_time_only < $shift_end_dt->format('H:i')) {
-                                        $row_status = 'Left Early';
-                                    } else {
-                                        $row_status = 'Unavailable';
-                                    }
-                                } else if ($is_on_break) {
-                                    $row_status = 'On Break';
-                                } else {
-                                    $row_status = 'Available';
-                                }
-
-                                echo "<tr $row_class $onclick data-status='" . htmlspecialchars($row_status) . "'>";
-                                echo "<td style='font-weight: 600; color: #0f172a;'>" . htmlspecialchars($row['name']) . "</td>";
-                                echo "<td><span style='background: {$color['bg']}; padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; color: {$color['text']};'>" . htmlspecialchars($row['employment_type']) . "</span></td>";
-                                
-                                if ($row['leave_status']) {
-                                    echo "<td><span class='badge' style='background:#fef2f2; color:#b91c1c;'>On Leave</span></td>";
-                                } else if ($row['absent_status'] === 'A') {
-                                    echo "<td><span class='badge' style='background:#fef2f2; color:#ef4444;'>Absent</span></td>";
-                                } else if (empty($row['clock_in_time'])) {
-                                    echo "<td><span class='badge' style='background:#f1f5f9; color:#64748b;'>Not Clocked In</span></td>";
-                                } else if ($has_clocked_out) {
-                                    if ($row_status === 'Left Early') {
-                                        echo "<td><span class='badge' style='background:#fef3c7; color:#d97706;'>Left Early</span></td>";
-                                    } else {
-                                        echo "<td><span class='badge' style='background:#e2e8f0; color:#475569;'>Unavailable</span></td>";
-                                    }
-                                } else if ($is_on_break) {
-                                    echo "<td><span class='badge bg-on-break'>" . htmlspecialchars($row['break_type']) . "</span></td>";
-                                } else {
-                                    echo "<td><span class='badge bg-available'>Available</span></td>";
-                                }
-                                
-                                $c_in_display = $row['clock_in_time'] ? date('h:i A', strtotime($row['clock_in_time'])) : '--';
-                                $c_out_display = $row['clock_out_time'] ? date('h:i A', strtotime($row['clock_out_time'])) : '--';
-                                
-                                echo "<td style='font-size: 13px; font-weight: 600; color: #475569;'>" . $c_in_display . "</td>";
-                                echo "<td style='font-size: 13px; font-weight: 600; color: #475569;'>" . $c_out_display . "</td>";
-                                
-                                echo "<td><span class='badge' style='background: " . str_replace('#', 'rgba(', $late_status_color) . ",0.1); color: " . $late_status_color . ";'>" . $late_status_display . "</span></td>";
-                                echo "<td><span class='elapsed-text' style='color: " . ($late_status_display === 'Late' ? '#ef4444' : '#94a3b8') . "; font-weight: 700;'>" . $late_elapsed_display . "</span></td>";
-                                echo "<td><span class='elapsed-text'>" . $limit_text . "</span></td>";
-                                echo "<td><span class='elapsed-text'>" . $rem_text . "</span></td>";
-                                echo "</tr>";
-                            }
-                        } else {
-                            echo "<tr><td colspan='9' style='text-align: center; padding: 60px; color: #94a3b8; font-weight: 600;'>No employees registered yet.</td></tr>";
-                        }
-                        ?>
-                    </tbody>
-                </table>
-            </div>
-            </div> <!-- End of Grid -->
-        </div>
-    
-</main>
-
-    <!-- EMPLOYEE BREAK DETAIL MODAL -->
-    <div id="employeeModal" class="modal-overlay">
-        <div class="modal-box">
-            <button class="close-btn" onclick="closeFloatingBox()">&times;</button>
-            <div class="profile-pic bg-amber-100 text-amber-600" id="modalAvatar" >K</div>
-            <h2 id="modalName" class="text-slate-900" style=" margin-bottom: 5px;">Employee Name</h2>
-            <p id="modalDept" class="text-slate-500" style=" font-weight: 500; margin-bottom: 0;">Department</p>
-            
-            <div class="info-block">
-                <div class="info-row">
-                    <span class="info-label">Lunchtime Started</span>
-                    <span class="info-value" id="modalTime">--:--</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Time Elapsed</span>
-                    <span class="info-value text-amber-600" id="modalElapsed" >-- min</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Status</span>
-                    <span class="info-value text-amber-600"  id="modalBreakType">🍽️ On Break</span>
-                </div>
-            </div>
-
-            <form method="POST" action="" id="forceEndForm">
-                <input type="hidden" name="break_employee_id" id="modalEmpId">
-                <button type="submit" name="force_end_break" class="modal-btn">Force Stop</button>
-            </form>
-        </div>
-    </div>
+    </main>
 
     
 <!-- Override Modal -->
@@ -1155,7 +928,7 @@ $vio_data_values = array_values($vio_data);
             <form method="POST" action="" enctype="multipart/form-data" style="text-align: left;" id="leaveModalForm">
                 <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                <div class="grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
                     <!-- Row 1: Name & App Date -->
                     <div>
                         <label class="text-slate-900" style="display: block; font-size: 13px; font-weight: 700;  margin-bottom: 6px;"><span class="text-red-500" >*</span> Full Name of Employee</label>
@@ -1307,13 +1080,19 @@ $vio_data_values = array_values($vio_data);
         setInterval(function() {
             document.querySelectorAll('.timer-display[data-active="1"]').forEach(function(el) {
                 let sec = parseInt(el.getAttribute('data-seconds'));
-                if (sec > 0) {
-                    sec--;
-                    el.setAttribute('data-seconds', sec);
-                    let m = Math.floor(sec / 60);
-                    let s = sec % 60;
-                    el.innerText = (m < 10 ? '0' + m : m) + ':' + (s < 10 ? '0' + s : s);
+                sec--;
+                el.setAttribute('data-seconds', sec);
+                let isNeg = sec < 0;
+                if (isNeg) {
+                    el.classList.add('negative');
+                } else {
+                    el.classList.remove('negative');
                 }
+                let absSec = Math.abs(sec);
+                let m = Math.floor(absSec / 60);
+                let s = absSec % 60;
+                let sign = isNeg ? '-' : '';
+                el.innerText = sign + (m < 10 ? '0' + m : m) + ':' + (s < 10 ? '0' + s : s);
             });
         }, 1000);
     </script>
@@ -1469,10 +1248,10 @@ $vio_data_values = array_values($vio_data);
         new Chart(availCtx, {
             type: 'doughnut',
             data: {
-                labels: ['Available', 'On Break', 'Absent', 'On Leave', 'Not Clocked In'],
+                labels: ['Available', 'On Break', 'Absent', 'On Leave'],
                 datasets: [{
-                    data: [<?php echo $available_count; ?>, <?php echo $on_break_count; ?>, <?php echo $absent_count; ?>, <?php echo $leave_count; ?>, <?php echo $not_clocked_in_count; ?>],
-                    backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#94a3b8', '#cbd5e1'],
+                    data: [<?php echo $available_count; ?>, <?php echo $on_break_count; ?>, <?php echo $absent_count; ?>, <?php echo $leave_count; ?>],
+                    backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#691338'],
                     borderWidth: 0,
                     hoverOffset: 4
                 }]
@@ -1551,5 +1330,19 @@ $vio_data_values = array_values($vio_data);
         }, 30000);
     
 </script>
+    <script>
+        // Prevent tab closure if clocked in
+        let isClockedIn = <?php echo ($has_clocked_in && !$has_clocked_out) ? 'true' : 'false'; ?>;
+        let isSubmitting = false;
+        document.addEventListener('submit', function() {
+            isSubmitting = true;
+        });
+        window.addEventListener('beforeunload', function (e) {
+            if (isClockedIn && !isSubmitting) {
+                e.preventDefault();
+                e.returnValue = 'You are still clocked in. Please remember to clock out before leaving!';
+            }
+        });
+    </script>
 </body>
 </html>

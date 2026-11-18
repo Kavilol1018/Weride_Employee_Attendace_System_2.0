@@ -55,7 +55,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['leave_action'])) {
             elseif (strpos($lt, 'SICK') !== false) { $abbr = 'SL'; }
             elseif (strpos($lt, 'UNPLANNED') !== false) { $abbr = 'UL'; }
             elseif (strpos($lt, 'UNPAID') !== false) { $abbr = 'UPL'; }
-            elseif (strpos($lt, 'HOSPITALIZATION') !== false) { $abbr = 'HOSP'; }
+            elseif (strpos($lt, 'HOSPITALIZATION') !== false) { $abbr = 'HL'; }
 
             if ($is_half && ($abbr === 'AL' || $abbr === 'SL')) {
                 $log_status = '0.5 ' . $abbr;
@@ -73,7 +73,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['leave_action'])) {
                 $day_of_week = (int)$current_dt->format('w'); // 0=Sun, 6=Sat
                 if ($day_of_week !== 0 && $day_of_week !== 6) {
                     $date_str = $current_dt->format('Y-m-d');
-                    mysqli_query($conn, "INSERT INTO attendance_logs (emp_id, date, status) VALUES ('$emp_id', '$date_str', '$log_status') ON DUPLICATE KEY UPDATE status = '$log_status'");
+                    $concat_sql = "IF(status LIKE '0.5%' AND '$log_status' LIKE '0.5%' AND status != '$log_status' AND status NOT LIKE '%$log_status%', CONCAT(status, ' / ', '$log_status'), '$log_status')";
+                    mysqli_query($conn, "INSERT INTO attendance_logs (emp_id, date, status, source) VALUES ('$emp_id', '$date_str', '$log_status', 'leave_form') ON DUPLICATE KEY UPDATE status = $concat_sql, source = 'leave_form'");
                 }
                 $current_dt->modify('+1 day');
             }
@@ -90,7 +91,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['leave_action'])) {
                 }
             } elseif ($abbr === 'UPL') {
                 mysqli_query($conn, "UPDATE employees SET unpaid_leave_balance = unpaid_leave_balance + $days WHERE emp_id = '$emp_id'");
-            } elseif ($abbr === 'HOSP') {
+            } elseif ($abbr === 'HL') {
                 if ($emp_type !== 'intern') {
                     mysqli_query($conn, "UPDATE employees SET hospitalization_leave_balance = GREATEST(0, hospitalization_leave_balance - $days) WHERE emp_id = '$emp_id'");
                 }
@@ -107,6 +108,65 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['leave_action'])) {
         
         $msg = "Your leave request ($leave_type for $start_date) was rejected. Topic: $rejection_topic. Reason: $rejection_reason";
         mysqli_query($conn, "INSERT INTO employee_notifications (emp_id, message) VALUES ('$emp_id', '$msg')");
+    } elseif ($action == 'cancel') {
+        $lr_data_q = @mysqli_query($conn, "SELECT * FROM leave_requests WHERE id = $leave_id AND status = 'approved'");
+        if ($lr_data = mysqli_fetch_assoc($lr_data_q)) {
+            $duration = (float)$lr_data['duration'];
+            if ($duration <= 0) {
+                $s = new DateTime($lr_data['start_date']);
+                $e = new DateTime($lr_data['end_date']);
+                $duration = 0;
+                while ($s <= $e) {
+                    $dow = (int)$s->format('w');
+                    if ($dow !== 0 && $dow !== 6) $duration++;
+                    $s->modify('+1 day');
+                }
+            }
+            
+            $lt = strtoupper($lr_data['leave_type']);
+            $abbr = 'L';
+            if (strpos($lt, 'EMERGENCY') !== false) { $abbr = 'AL'; }
+            elseif (strpos($lt, 'ANNUAL') !== false) { $abbr = 'AL'; }
+            elseif (strpos($lt, 'SICK') !== false) { $abbr = 'SL'; }
+            elseif (strpos($lt, 'UNPLANNED') !== false) { $abbr = 'UL'; }
+            elseif (strpos($lt, 'UNPAID') !== false) { $abbr = 'UPL'; }
+            elseif (strpos($lt, 'HOSPITALIZATION') !== false) { $abbr = 'HL'; }
+
+            $emp_q = mysqli_query($conn, "SELECT employment_type FROM employees WHERE emp_id = '$emp_id'");
+            $emp_d = mysqli_fetch_assoc($emp_q);
+            $emp_type = strtolower($emp_d['employment_type'] ?? 'full_time');
+
+            if ($abbr === 'AL') {
+                mysqli_query($conn, "UPDATE employees SET annual_leave_balance = annual_leave_balance + $duration WHERE emp_id = '$emp_id'");
+            } elseif ($abbr === 'SL' || $abbr === 'UL') {
+                if ($emp_type !== 'intern') {
+                    mysqli_query($conn, "UPDATE employees SET sick_leave_balance = sick_leave_balance + $duration WHERE emp_id = '$emp_id'");
+                }
+            } elseif ($abbr === 'UPL') {
+                mysqli_query($conn, "UPDATE employees SET unpaid_leave_balance = GREATEST(0, unpaid_leave_balance - $duration) WHERE emp_id = '$emp_id'");
+            } elseif ($abbr === 'HL') {
+                if ($emp_type !== 'intern') {
+                    mysqli_query($conn, "UPDATE employees SET hospitalization_leave_balance = hospitalization_leave_balance + $duration WHERE emp_id = '$emp_id'");
+                }
+            }
+            
+            $s = new DateTime($lr_data['start_date']);
+            $e = new DateTime($lr_data['end_date']);
+            while ($s <= $e) {
+                $dow = (int)$s->format('w');
+                if ($dow !== 0 && $dow !== 6) {
+                    $d_str = $s->format('Y-m-d');
+                    mysqli_query($conn, "DELETE FROM attendance_logs WHERE emp_id = '$emp_id' AND date = '$d_str' AND clock_in IS NULL AND clock_out IS NULL AND status != 'P'");
+                    mysqli_query($conn, "UPDATE attendance_logs SET status = 'P' WHERE emp_id = '$emp_id' AND date = '$d_str' AND (clock_in IS NOT NULL OR clock_out IS NOT NULL)");
+                }
+                $s->modify('+1 day');
+            }
+
+            mysqli_query($conn, "UPDATE leave_requests SET status = 'cancelled' WHERE id = $leave_id");
+            $status_message = "Leave request cancelled and balances restored.";
+            $msg = "Your leave request (" . $lr_data['leave_type'] . " for " . $lr_data['start_date'] . ") was cancelled.";
+            mysqli_query($conn, "INSERT INTO employee_notifications (emp_id, message) VALUES ('$emp_id', '$msg')");
+        }
     }
 }
 
@@ -150,12 +210,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['force_action'])) {
                 
                 if (in_array($ext, $allowed_ext)) {
                     $upload_dir = 'uploads/medical_certificates/';
-                    if (!is_dir($upload_dir)) { mkdir($upload_dir, 0777, true); }
+                    $upload_abs_dir = rtrim($_SERVER['DOCUMENT_ROOT'], '/') . '/' . $upload_dir;
+                    if (!is_dir($upload_abs_dir)) { mkdir($upload_abs_dir, 0755, true); }
                     $emp_name = $emp_row['name'];
                     $safe_name = preg_replace('/[^A-Za-z0-9]/', '', $emp_name);
                     $new_filename = $safe_name . '_' . $start_date . '_' . $end_date . '.' . $ext;
+                    $dest_abs = $upload_abs_dir . $new_filename;
                     $dest = $upload_dir . $new_filename;
-                    if (move_uploaded_file($_FILES['medical_certificate']['tmp_name'], $dest)) {
+                    if (move_uploaded_file($_FILES['medical_certificate']['tmp_name'], $dest_abs)) {
                         $mc_path = $dest;
                     } else {
                         $error = "Failed to upload medical certificate.";
@@ -185,7 +247,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['force_action'])) {
                 elseif (strpos($lt, 'SICK') !== false) { $abbr = 'SL'; }
                 elseif (strpos($lt, 'UNPAID') !== false) { $abbr = 'UPL'; }
                 elseif (strpos($lt, 'EMERGENCY') !== false) { $abbr = 'AL'; }
-                elseif (strpos($lt, 'HOSPITALIZATION') !== false) { $abbr = 'HOSP'; }
+                elseif (strpos($lt, 'HOSPITALIZATION') !== false) { $abbr = 'HL'; }
                 
                 if ($is_half && ($abbr === 'AL' || $abbr === 'SL')) {
                     $log_status = '0.5 ' . $abbr;
@@ -208,7 +270,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['force_action'])) {
                         $day_of_week = (int)$current_dt->format('w'); // 0=Sun, 6=Sat
                         if ($day_of_week !== 0 && $day_of_week !== 6) {
                             $date_str = $current_dt->format('Y-m-d');
-                            mysqli_query($conn, "INSERT INTO attendance_logs (emp_id, date, status) VALUES ('$emp_id', '$date_str', '$log_status') ON DUPLICATE KEY UPDATE status = '$log_status'");
+                            $concat_sql = "IF(status LIKE '0.5%' AND '$log_status' LIKE '0.5%' AND status != '$log_status' AND status NOT LIKE '%$log_status%', CONCAT(status, ' / ', '$log_status'), '$log_status')";
+                            mysqli_query($conn, "INSERT INTO attendance_logs (emp_id, date, status, source) VALUES ('$emp_id', '$date_str', '$log_status', 'leave_form') ON DUPLICATE KEY UPDATE status = $concat_sql, source = 'leave_form'");
                         }
                         $current_dt->modify('+1 day');
                     }
@@ -219,7 +282,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['force_action'])) {
                         mysqli_query($conn, "UPDATE employees SET sick_leave_balance = GREATEST(0, sick_leave_balance - $duration) WHERE emp_id = '$emp_id'");
                     } elseif ($abbr === 'UPL') {
                         mysqli_query($conn, "UPDATE employees SET unpaid_leave_balance = unpaid_leave_balance + $duration WHERE emp_id = '$emp_id'");
-                    } elseif ($abbr === 'HOSP') {
+                    } elseif ($abbr === 'HL') {
                         mysqli_query($conn, "UPDATE employees SET hospitalization_leave_balance = GREATEST(0, hospitalization_leave_balance - $duration) WHERE emp_id = '$emp_id'");
                     }
                     
@@ -247,9 +310,9 @@ if (in_array($role, ['gl', 'tl'])) {
 $where_sql = implode(' AND ', $where_clauses);
 
 $leaves_sql = "
-    SELECT l.*, e.name, e.employment_type 
+    SELECT l.*, COALESCE(e.name, l.emp_id) as name, e.employment_type 
     FROM leave_requests l 
-    JOIN employees e ON l.emp_id = e.emp_id 
+    LEFT JOIN employees e ON l.emp_id = e.emp_id 
     WHERE $where_sql
     ORDER BY CASE WHEN l.status IN ('pending', 'pending_hr') THEN 1 ELSE 2 END, l.created_at DESC
 ";
@@ -331,6 +394,76 @@ if ($emp_dropdown_res) {
         body.dark-mode .badge.bg-pending { background-color: #78350f; color: #fcd34d; }
         body.dark-mode .badge.bg-approved { background-color: #064e3b; color: #6ee7b7; }
         body.dark-mode .badge.bg-rejected { background-color: #7f1d1d; color: #fca5a5; }
+
+        /* Search Bar Styles */
+        .search-container {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+        }
+        .search-input {
+            padding: 9px 36px 9px 38px;
+            border: 1px solid #cbd5e1;
+            border-radius: 24px;
+            width: 320px;
+            font-size: 13.5px;
+            outline: none;
+            background: #ffffff;
+            color: #0f172a;
+            transition: all 0.2s ease;
+        }
+        .search-input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+        .search-icon {
+            position: absolute;
+            left: 13px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 16px;
+            color: #94a3b8;
+            pointer-events: none;
+            transition: color 0.2s ease;
+        }
+        .search-container:focus-within .search-icon {
+            color: #3b82f6;
+        }
+        .clear-search-btn {
+            display: none;
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 2px;
+            line-height: 1;
+            transition: color 0.2s;
+        }
+        .clear-search-btn:hover {
+            color: #ef4444;
+        }
+        
+        body.dark-mode .search-input {
+            background-color: #1e293b;
+            border-color: #334155;
+            color: #f8fafc;
+        }
+        body.dark-mode .search-input::placeholder {
+            color: #64748b;
+        }
+        body.dark-mode .search-input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+        }
+        body.dark-mode .clear-search-btn:hover {
+            color: #f87171;
+        }
     </style>
     <link rel="stylesheet" href="assets/css/dark_mode.css?v=<?php echo time(); ?>">
     <script src="assets/js/theme_toggle.js"></script>
@@ -354,9 +487,21 @@ if ($emp_dropdown_res) {
                 </div>
             <?php endif; ?>
 
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; margin-top: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; margin-top: 10px; flex-wrap: wrap; gap: 15px;">
                 <h2 class="section-header" style="margin:0;">Leave & Emergency Leave Requests</h2>
-                <button onclick="document.getElementById('forceActionModal').style.display='flex'" class="text-white" style="background: #3b82f6;  border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer;">Apply Leave on Behalf</button>
+                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                    <div class="search-container">
+                        <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                        <input type="text" id="searchInput" class="search-input" oninput="searchLeaveRequests()" placeholder="Search employee, ID, leave type, reason...">
+                        <button type="button" id="clearSearchBtn" class="clear-search-btn" onclick="clearSearch()" title="Clear search">&times;</button>
+                    </div>
+                    <button onclick="document.getElementById('forceActionModal').style.display='flex'" class="text-white" style="background: #3b82f6; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);">
+                        Apply Leave on Behalf
+                    </button>
+                </div>
             </div>
             
             <div class="table-container">
@@ -365,6 +510,7 @@ if ($emp_dropdown_res) {
                         <tr>
                             <th>Employee</th>
                             <th>Leave Type</th>
+                            <th>Time of Submission</th>
                             <th>Period</th>
                             <th>Half Day</th>
                             <th>MC / Proof</th>
@@ -376,14 +522,33 @@ if ($emp_dropdown_res) {
                     <tbody>
                         <?php if ($leaves_result && mysqli_num_rows($leaves_result) > 0): ?>
                             <?php while ($row = mysqli_fetch_assoc($leaves_result)): ?>
-                                <tr>
+                                <tr class="leave-row">
                                     <td><b style="font-size: 15px;"><?php echo htmlspecialchars($row['name']); ?></b><br><span style="font-weight: 600; font-size: 12px;" class="text-muted">#<?php echo htmlspecialchars($row['emp_id']); ?></span></td>
                                     <td><span style="font-weight:700;" class="text-muted"><?php echo htmlspecialchars($row['leave_type']); ?></span></td>
+                                    <td style="font-weight: 600; font-size: 13px; white-space: nowrap;" class="text-muted">
+                                        <?php 
+                                            $sub_time = (!empty($row['created_at']) && $row['created_at'] !== '0000-00-00 00:00:00') ? $row['created_at'] : null;
+                                            if ($sub_time): 
+                                        ?>
+                                            <span><?php echo date('d M Y', strtotime($sub_time)); ?></span><br>
+                                            <span style="font-size: 11px; font-weight: 600; color: #64748b;"><?php echo date('h:i A', strtotime($sub_time)); ?></span>
+                                        <?php elseif (!empty($row['application_date']) && $row['application_date'] !== '0000-00-00'): ?>
+                                            <span><?php echo date('d M Y', strtotime($row['application_date'])); ?></span>
+                                        <?php else: ?>
+                                            <span style="color:#94a3b8;">-</span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td style="font-weight: 600;" class="text-muted"><?php echo date('d M Y', strtotime($row['start_date'])); ?> to <?php echo date('d M Y', strtotime($row['end_date'])); ?></td>
                                     <td style="font-weight: 600;" class="text-muted"><?php echo (isset($row['duration']) && (float)$row['duration'] == 0.5) ? 'Yes' : 'N/A'; ?></td>
                                     <td>
                                         <?php if (!empty($row['mc_attachment'])): ?>
-                                            <a href="<?php echo htmlspecialchars($row['mc_attachment']); ?>" target="_blank" style="background: #eff6ff; color:#3b82f6; text-decoration:none; padding: 4px 10px; border-radius: 6px; font-size:12px; font-weight:700;">View File</a>
+                                            <?php 
+                                                $mc_url = $row['mc_attachment'];
+                                                if (!empty($mc_url) && strpos($mc_url, 'http') !== 0) {
+                                                    $mc_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . '/' . ltrim($mc_url, '/');
+                                                }
+                                            ?>
+                                            <a href="<?php echo htmlspecialchars($mc_url); ?>" target="_blank" style="background: #eff6ff; color:#3b82f6; text-decoration:none; padding: 4px 10px; border-radius: 6px; font-size:12px; font-weight:700;">View File</a>
                                         <?php else: ?>
                                             <span style="color:#94a3b8; font-size:12px;">-</span>
                                         <?php endif; ?>
@@ -410,6 +575,15 @@ if ($emp_dropdown_res) {
                                                 <button type="submit" name="action" value="approve" class="btn btn-approve">Approve</button>
                                                 <button type="button" class="btn btn-reject" onclick="openRejectModal('<?php echo $row['id']; ?>', '<?php echo $row['emp_id']; ?>', '<?php echo $row['leave_type']; ?>', '<?php echo $row['start_date']; ?>', '<?php echo $row['end_date']; ?>')">Reject</button>
                                             </form>
+                                        <?php elseif ($row['status'] === 'approved'): ?>
+                                            <form method="POST" action="" style="display:inline;" onsubmit="return confirm('Are you sure you want to cancel this approved leave and restore the balance?');">
+                                                <input type="hidden" name="leave_action" value="1">
+                                                <input type="hidden" name="leave_id" value="<?php echo $row['id']; ?>">
+                                                <input type="hidden" name="emp_id" value="<?php echo $row['emp_id']; ?>">
+                                                <input type="hidden" name="leave_type" value="<?php echo $row['leave_type']; ?>">
+                                                <input type="hidden" name="start_date" value="<?php echo $row['start_date']; ?>">
+                                                <button type="submit" name="action" value="cancel" class="btn btn-reject" style="background:#f59e0b;">Cancel Leave</button>
+                                            </form>
                                         <?php else: ?>
                                             <span style="color: #94a3b8; font-size: 13px; font-weight: 600;">Processed</span>
                                         <?php endif; ?>
@@ -417,7 +591,7 @@ if ($emp_dropdown_res) {
                                 </tr>
                             <?php endwhile; ?>
                         <?php else: ?>
-                            <tr><td colspan="8" class="text-slate-500" style="text-align:center;  padding:20px; font-weight: 600;">No leave requests found.</td></tr>
+                            <tr><td colspan="9" class="text-slate-500" style="text-align:center;  padding:20px; font-weight: 600;">No leave requests found.</td></tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
@@ -439,7 +613,7 @@ if ($emp_dropdown_res) {
                 <input type="hidden" name="force_action" value="1">
                 <input type="hidden" name="force_type" value="leave">
                 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                <div class="grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
                     <!-- Row 1: Select Employee & Application Date -->
                     <div>
                         <label class="text-slate-900" style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px;"><span class="text-red-500">*</span> Select Employee</label>
@@ -769,6 +943,50 @@ if ($emp_dropdown_res) {
         function viewRejectionReason(reason) {
             document.getElementById('rejectionDescriptionText').innerText = reason;
             document.getElementById('rejectionModal').style.display = 'flex';
+        }
+
+        function searchLeaveRequests() {
+            const input = document.getElementById("searchInput").value.trim().toLowerCase();
+            const clearBtn = document.getElementById("clearSearchBtn");
+            if (clearBtn) {
+                clearBtn.style.display = input.length > 0 ? "block" : "none";
+            }
+            
+            const rows = document.querySelectorAll("tbody tr.leave-row");
+            let matchCount = 0;
+            
+            rows.forEach(row => {
+                const text = (row.textContent || row.innerText || "").toLowerCase();
+                if (text.indexOf(input) > -1) {
+                    row.style.setProperty("display", "", "important");
+                    matchCount++;
+                } else {
+                    row.style.setProperty("display", "none", "important");
+                }
+            });
+
+            let noMatchRow = document.getElementById("noSearchResultsRow");
+            if (!noMatchRow) {
+                const tbody = document.querySelector(".table-container table tbody");
+                if (tbody) {
+                    noMatchRow = document.createElement("tr");
+                    noMatchRow.id = "noSearchResultsRow";
+                    noMatchRow.innerHTML = '<td colspan="9" style="text-align: center; padding: 30px; font-weight: 600; color: #94a3b8;">No matching leave requests found.</td>';
+                    tbody.appendChild(noMatchRow);
+                }
+            }
+            if (noMatchRow) {
+                noMatchRow.style.display = (rows.length > 0 && matchCount === 0) ? "" : "none";
+            }
+        }
+
+        function clearSearch() {
+            const input = document.getElementById("searchInput");
+            if (input) {
+                input.value = "";
+                searchLeaveRequests();
+                input.focus();
+            }
         }
     </script>
 </body>

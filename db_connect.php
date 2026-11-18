@@ -24,26 +24,7 @@ if (!$conn) {
 date_default_timezone_set('Asia/Kuala_Lumpur');
 mysqli_query($conn, "SET time_zone = '+08:00'");
 
-// 1 Hour Session Timeout Logic
-if (session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['user_id'])) {
-    $timeout_duration = 3600; // 1 hour in seconds
 
-    if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity']) > $timeout_duration) {
-        session_unset();
-        session_destroy();
-
-        // Return JSON if it looks like an AJAX request
-        if (isset($_POST['action']) || (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) || (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')) {
-            header('Content-Type: application/json');
-            echo json_encode(['success' => false, 'error' => 'Session expired. Please refresh the page and log in again.']);
-            exit();
-        }
-
-        header("Location: index.php?error=" . urlencode("Session expired due to 1 hour of inactivity. Please log in again."));
-        exit();
-    }
-    $_SESSION['last_activity'] = time();
-}
 
 $role_slug = isset($_SESSION['role']) ? $_SESSION['role'] : 'employee';
 
@@ -55,7 +36,11 @@ if (empty($_SESSION['csrf_token'])) {
 // Auto Schema Migration Setup
 include_once __DIR__ . '/db_setup.php';
 
-function check_leave_capacity(mysqli $conn, string $start_date, string $end_date, string $emp_id) {
+function check_leave_capacity(mysqli $conn, string $start_date, string $end_date, string $emp_id, string $leave_type = 'Annual Leave') {
+    // Capacity limit of 5 only applies to Annual Leave
+    if (!empty($leave_type) && strpos(strtoupper($leave_type), 'ANNUAL') === false) {
+        return true;
+    }
     try {
         $gl_query = mysqli_query($conn, "SELECT IFNULL(NULLIF(group_leader_id, ''), emp_id) as gl_id FROM employees WHERE emp_id = '$emp_id'");
         $gl_row = mysqli_fetch_assoc($gl_query);
@@ -92,4 +77,33 @@ function check_leave_capacity(mysqli $conn, string $start_date, string $end_date
         return "Invalid date format.";
     }
     return true;
+}
+
+// --- SCHEDULED CHANGES LOGIC ---
+mysqli_query($conn, "CREATE TABLE IF NOT EXISTS scheduled_changes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    emp_id VARCHAR(50),
+    change_type VARCHAR(50),
+    new_value VARCHAR(100),
+    effective_date DATE,
+    applied TINYINT(1) DEFAULT 0
+)");
+
+// Apply any scheduled changes that are due today or earlier
+$sch_query = mysqli_query($conn, "SELECT id, emp_id, change_type, new_value FROM scheduled_changes WHERE effective_date <= CURDATE() AND applied = 0");
+if ($sch_query && mysqli_num_rows($sch_query) > 0) {
+    while ($sch = mysqli_fetch_assoc($sch_query)) {
+        $e_id = mysqli_real_escape_string($conn, $sch['emp_id']);
+        $val = mysqli_real_escape_string($conn, $sch['new_value']);
+        $ctype = $sch['change_type'];
+        
+        if ($ctype == 'shift_hour') {
+            mysqli_query($conn, "UPDATE employees SET shift_hour = '$val' WHERE emp_id = '$e_id'");
+        } elseif ($ctype == 'lunch_window') {
+            mysqli_query($conn, "UPDATE employees SET lunch_window = '$val' WHERE emp_id = '$e_id'");
+        }
+        
+        $s_id = $sch['id'];
+        mysqli_query($conn, "UPDATE scheduled_changes SET applied = 1 WHERE id = $s_id");
+    }
 }

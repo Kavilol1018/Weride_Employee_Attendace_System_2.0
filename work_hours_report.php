@@ -41,7 +41,7 @@ $report_result = mysqli_query($conn, $report_sql);
     <title>Work Hours Report - WeRide</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
         body { display: flex; height: 100vh; background-color: #f8fafc; color: #0f172a; }
         .main-content { flex: 1; padding: 40px; overflow-y: auto; }
         .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 15px; }
@@ -121,7 +121,7 @@ $report_result = mysqli_query($conn, $report_sql);
                     </div>
                 </div>
                 <!-- Quick filters -->
-                <div style="margin-top: 15px; display: flex; gap: 10px;">
+                <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
                     <button type="button" class="btn bg-slate-100 text-slate-600" style="  padding: 6px 12px; font-size: 12px;" onclick="setDates(0)">Today</button>
                     <button type="button" class="btn bg-slate-100 text-slate-600" style="  padding: 6px 12px; font-size: 12px;" onclick="setDates(7)">Last 7 Days</button>
                     <button type="button" class="btn bg-slate-100 text-slate-600" style="  padding: 6px 12px; font-size: 12px;" onclick="setDates(30)">Last 30 Days</button>
@@ -146,8 +146,8 @@ $report_result = mysqli_query($conn, $report_sql);
                     <?php if(mysqli_num_rows($report_result) > 0): ?>
                         <?php while($row = mysqli_fetch_assoc($report_result)):
                             $wh = (float)$row['work_hours'];
-                            $ci = !empty($row['clock_in']) ? date('h:i A', strtotime($row['clock_in'])) : '--';
-                            $co = !empty($row['clock_out']) ? date('h:i A', strtotime($row['clock_out'])) : '--';
+                            $ci = !empty($row['clock_in']) ? date('H:i', strtotime($row['clock_in'])) : '--';
+                            $co = !empty($row['clock_out']) ? date('H:i', strtotime($row['clock_out'])) : '--';
                         ?>
                         <tr>
                             <td style="font-weight: 500;" class="text-muted"><?= htmlspecialchars($row['emp_id']) ?></td>

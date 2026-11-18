@@ -9,7 +9,7 @@ include 'db_connect.php';
 
 $current_employee_id = $_SESSION['emp_id']; 
 
-$emp_query = mysqli_query($conn, "SELECT employment_type, lunch_window, name, annual_leave_balance, sick_leave_balance, shift_hour FROM employees WHERE emp_id = '$current_employee_id'");
+$emp_query = mysqli_query($conn, "SELECT employment_type, lunch_window, name, annual_leave_balance, sick_leave_balance, shift_hour, profile_picture FROM employees WHERE emp_id = '$current_employee_id'");
 $emp_data = mysqli_fetch_assoc($emp_query);
 $employment_type = $emp_data['employment_type'] ?? 'full_time';
 $lunch_window = $emp_data['lunch_window'] ?? '12:00-13:00';
@@ -24,12 +24,10 @@ $override_row_limit = mysqli_fetch_assoc($override_query_limit);
 $total_override_mins = $override_row_limit['total_override'] ? (int)$override_row_limit['total_override'] : 0;
 $total_lunch_limit = 60 + $total_override_mins;
 
-// VALIDATE IP (COMPANY WIFI)
-$allowed_ips = ['127.0.0.1', '::1', '10.22.7.117', '211.25.36.214', '113.211.196.97', '182.62.34.248'];
+// NO IP RESTRICTIONS FOR GL
 $user_ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'];
-if (strpos($user_ip, ',') !== false) { $user_ip = explode(',', $user_ip)[0]; }
-$user_ip = trim($user_ip);
-$is_valid_ip = in_array($user_ip, $allowed_ips) || strpos($user_ip, '10.22.') === 0 || strpos($user_ip, 'fe80:') === 0 || strpos($user_ip, '211.25.') === 0 || strpos($user_ip, '113.211.') === 0 || strpos($user_ip, '182.62.') === 0;
+$is_valid_ip = true; // Always true for GL
+$is_mobile = false; // Never blocks GL on mobile
 
 // VALIDATE TIME (LUNCH WINDOW)
 date_default_timezone_set('Asia/Kuala_Lumpur');
@@ -62,9 +60,8 @@ $is_early_clockout = (date('H:i') < $shift_end);
 $leave_check_sql = "SELECT id FROM leave_requests WHERE emp_id = '$current_employee_id' AND status = 'approved' AND start_date <= CURDATE() AND end_date >= CURDATE() AND leave_type IN ('Half-Day Leave', 'Half-Day Leave (Before Lunch)', 'Half-Day Leave (After Lunch)', 'Emergency Leave')";
 $has_early_leave = mysqli_num_rows(mysqli_query($conn, $leave_check_sql)) > 0;
 
-// DEVICE VALIDATION
-$user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
-$is_mobile = preg_match("/(android|avantgo|blackberry|bolt|boost|cricket|docomo|fone|hiptop|mini|mobi|palm|phone|pie|tablet|up\.browser|up\.link|webos|wos)/i", $user_agent);
+// NO DEVICE RESTRICTIONS FOR GL
+$is_mobile = false;
 
 // POST ACTIONS
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
@@ -269,12 +266,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             
             if (in_array($ext, $allowed_ext)) {
                 $upload_dir = 'uploads/medical_certificates/';
-                if (!is_dir($upload_dir)) { mkdir($upload_dir, 0777, true); }
+                $upload_abs_dir = rtrim($_SERVER['DOCUMENT_ROOT'], '/') . '/' . $upload_dir;
+                if (!is_dir($upload_abs_dir)) { mkdir($upload_abs_dir, 0755, true); }
                 $safe_name = preg_replace('/[^A-Za-z0-9]/', '', $employee_name);
                 $new_filename = $safe_name . '_' . $start_date . '_' . $end_date . '.' . $ext;
+                $dest_abs = $upload_abs_dir . $new_filename;
                 $dest = $upload_dir . $new_filename;
                 
-                if (move_uploaded_file($_FILES['medical_certificate']['tmp_name'], $dest)) {
+                if (move_uploaded_file($_FILES['medical_certificate']['tmp_name'], $dest_abs)) {
                     $mc_path = $dest;
                 } else {
                     $error = "Failed to upload medical certificate.";
@@ -285,7 +284,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
 
         if (empty($error)) {
-            $capacity_check = check_leave_capacity($conn, $start_date, $end_date, $current_employee_id);
+            $capacity_check = check_leave_capacity($conn, $start_date, $end_date, $current_employee_id, $leave_type);
             if ($capacity_check !== true) {
                 header("Location: gl_dashboard.php?msg=" . urlencode($capacity_check));
                 exit();
@@ -378,7 +377,8 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
         .btn-primary:hover { background-color: #2563eb; }
         .btn-danger { background-color: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px; }
         .btn-secondary { background-color: #e2e8f0; color: #64748b; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: not-allowed; font-size: 14px; }
-        .avatar { width: 35px; height: 35px; background-color: #1e293b; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .avatar { width: 35px; height: 35px; background-color: #1e293b; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; overflow: hidden; flex-shrink: 0; }
+        .avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
 
         .content { padding: 0 40px 40px 40px; display: flex; flex-direction: column; gap: 20px; }
 
@@ -408,7 +408,8 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
         .timer-circle.purple { background: #faf5ff; border: 1px solid #f3e8ff; color: #a855f7; }
         .timer-circle svg { width: 32px; height: 32px; }
 
-        .timer-display { font-size: 48px; font-weight: 800; color: #0f172a; line-height: 1; margin-bottom: 8px; }
+        .timer-display { font-size: 48px; font-weight: 800; color: #0f172a; line-height: 1; margin-bottom: 8px; transition: color 0.3s; }
+        .timer-display.negative { color: #ef4444 !important; }
         .timer-subtext { font-size: 14px; color: #64748b; font-weight: 500; margin-bottom: 30px; }
 
         .action-form { width: 100%; max-width: 400px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
@@ -519,7 +520,13 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
                         <?php endif; ?>
                     </form>
                 <?php endif; ?>
-                <a href="profile.php" class="avatar" style="text-decoration: none;"><?php echo strtoupper(substr($employee_name, 0, 1)); ?></a>
+                <a href="profile.php" class="avatar" style="text-decoration: none;" title="My Profile">
+                    <?php if (!empty($emp_data['profile_picture']) && file_exists($emp_data['profile_picture'])): ?>
+                        <img src="<?php echo htmlspecialchars($emp_data['profile_picture']); ?>" alt="Profile">
+                    <?php else: ?>
+                        <?php echo strtoupper(substr($employee_name, 0, 1)); ?>
+                    <?php endif; ?>
+                </a>
             </div>
         </header>
 
@@ -566,8 +573,8 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
                         <div class="info-label">Today's Attendance</div>
                         <div class="info-value" style="color: #10b981; font-size: 14px;">
                             <?php 
-                                $ci = !empty($today_att['clock_in']) ? date('h:i A', strtotime($today_att['clock_in'])) : '--:--';
-                                $co = !empty($today_att['clock_out']) ? date('h:i A', strtotime($today_att['clock_out'])) : '--:--';
+                                $ci = !empty($today_att['clock_in']) ? date('H:i', strtotime($today_att['clock_in'])) : '--:--';
+                                $co = !empty($today_att['clock_out']) ? date('H:i', strtotime($today_att['clock_out'])) : '--:--';
                                 echo "IN: $ci <br> OUT: $co";
                             ?>
                         </div>
@@ -725,7 +732,7 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
             <form method="POST" action="" enctype="multipart/form-data" style="text-align: left;" id="leaveModalForm">
                 <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                <div class="grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
                     <!-- Row 1: Name & App Date -->
                     <div>
                         <label class="text-slate-900" style="display: block; font-size: 13px; font-weight: 700;  margin-bottom: 6px;"><span class="text-red-500" >*</span> Full Name of Employee</label>
@@ -877,13 +884,19 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
         setInterval(function() {
             document.querySelectorAll('.timer-display[data-active="1"]').forEach(function(el) {
                 let sec = parseInt(el.getAttribute('data-seconds'));
-                if (sec > 0) {
-                    sec--;
-                    el.setAttribute('data-seconds', sec);
-                    let m = Math.floor(sec / 60);
-                    let s = sec % 60;
-                    el.innerText = (m < 10 ? '0' + m : m) + ':' + (s < 10 ? '0' + s : s);
+                sec--;
+                el.setAttribute('data-seconds', sec);
+                let isNeg = sec < 0;
+                if (isNeg) {
+                    el.classList.add('negative');
+                } else {
+                    el.classList.remove('negative');
                 }
+                let absSec = Math.abs(sec);
+                let m = Math.floor(absSec / 60);
+                let s = absSec % 60;
+                let sign = isNeg ? '-' : '';
+                el.innerText = sign + (m < 10 ? '0' + m : m) + ':' + (s < 10 ? '0' + s : s);
             });
         }, 1000);
     </script>
@@ -999,6 +1012,20 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
                 }
             }
         <?php endif; ?>
+    </script>
+    <script>
+        // Prevent tab closure if clocked in
+        let isClockedIn = <?php echo ($has_clocked_in && !$has_clocked_out) ? 'true' : 'false'; ?>;
+        let isSubmitting = false;
+        document.addEventListener('submit', function() {
+            isSubmitting = true;
+        });
+        window.addEventListener('beforeunload', function (e) {
+            if (isClockedIn && !isSubmitting) {
+                e.preventDefault();
+                e.returnValue = 'You are still clocked in. Please remember to clock out before leaving!';
+            }
+        });
     </script>
 </body>
 </html>

@@ -108,7 +108,7 @@ $result = mysqli_query($conn, $query);
                                     <td><?php echo $row['id']; ?></td>
                                     <td><?php echo htmlspecialchars($row['emp_id']); ?></td>
                                     <td><?php echo htmlspecialchars($row['name'] ?? 'Unknown'); ?></td>
-                                    <td><?php echo date('d M Y, h:i A', strtotime($row['login_time'])); ?></td>
+                                    <td><?php echo date('d M Y, H:i', strtotime($row['login_time'])); ?></td>
                                     <td><?php echo htmlspecialchars($row['ip_address']); ?></td>
                                     <td>
                                         <span class="badge <?php echo strtolower($row['status']); ?>">

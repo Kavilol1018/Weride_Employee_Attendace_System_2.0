@@ -92,8 +92,8 @@ if ($manpower_result && mysqli_num_rows($manpower_result) > 0) {
             }
         }
 
-        $c_in_display = $row['clock_in_time'] ? date('h:i A', strtotime($row['clock_in_time'])) : '--';
-        $c_out_display = $row['clock_out_time'] ? date('h:i A', strtotime($row['clock_out_time'])) : '--';
+        $c_in_display = $row['clock_in_time'] ? date('H:i', strtotime($row['clock_in_time'])) : '--';
+        $c_out_display = $row['clock_out_time'] ? date('H:i', strtotime($row['clock_out_time'])) : '--';
 
         fputcsv($output, [
             $row['name'],

@@ -18,10 +18,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['break_change_action'])
 
     if ($action == 'approve') {
         mysqli_query($conn, "UPDATE break_change_requests SET status = 'approved' WHERE id = $request_id");
-        mysqli_query($conn, "UPDATE employees SET lunch_window = '$requested_window' WHERE emp_id = '$emp_id'");
-        $status_message = "Break change request approved successfully.";
         
-        $msg = "Your request to change your lunch window to $requested_window was approved.";
+        if (date('N') == 5) { // If today is Friday
+            $next_monday = date('Y-m-d', strtotime('next monday'));
+            mysqli_query($conn, "INSERT INTO scheduled_changes (emp_id, change_type, new_value, effective_date) VALUES ('$emp_id', 'lunch_window', '$requested_window', '$next_monday')");
+            $status_message = "Break change request approved. It will take effect automatically on Monday.";
+            $msg = "Your request to change your lunch window to $requested_window was approved and will take effect on Monday.";
+        } else {
+            mysqli_query($conn, "UPDATE employees SET lunch_window = '$requested_window' WHERE emp_id = '$emp_id'");
+            $status_message = "Break change request approved successfully.";
+            $msg = "Your request to change your lunch window to $requested_window was approved.";
+        }
+        
         mysqli_query($conn, "INSERT INTO employee_notifications (emp_id, message) VALUES ('$emp_id', '$msg')");
     } elseif ($action == 'reject') {
         mysqli_query($conn, "UPDATE break_change_requests SET status = 'rejected' WHERE id = $request_id");

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 session_start();
 require 'db_connect.php';
 
@@ -8,8 +8,8 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'hr',
     exit();
 }
 
-$role_slug = $_SESSION['role'];
-$is_admin = ($role_slug === 'admin');
+$role_slug = strtolower($_SESSION['role'] ?? '');
+$is_admin = in_array($role_slug, ['admin', 'hr', 'tl']);
 $current_page = 'admin_holidays.php';
 
 $success = '';
@@ -162,7 +162,7 @@ while ($row = mysqli_fetch_assoc($h_query)) {
     <title>Manage Public Holidays - WeRide</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; margin: 0; display: flex; color: #0f172a; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f8fafc; margin: 0; display: flex; color: #0f172a; }
         .main-content { flex: 1; padding: 30px; box-sizing: border-box; overflow-y: auto; height: 100vh; }
         
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }

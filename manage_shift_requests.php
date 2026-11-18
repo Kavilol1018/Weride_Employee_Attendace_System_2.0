@@ -18,10 +18,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['shift_change_action'])
 
     if ($action == 'approve') {
         mysqli_query($conn, "UPDATE shift_change_requests SET status = 'approved' WHERE id = $request_id");
-        mysqli_query($conn, "UPDATE employees SET shift_hour = '$requested_shift' WHERE emp_id = '$emp_id'");
-        $status_message = "Shift change request approved successfully.";
         
-        $msg = "Your request to change your shift hour to $requested_shift was approved.";
+        if (date('N') == 5) { // If today is Friday
+            $next_monday = date('Y-m-d', strtotime('next monday'));
+            mysqli_query($conn, "INSERT INTO scheduled_changes (emp_id, change_type, new_value, effective_date) VALUES ('$emp_id', 'shift_hour', '$requested_shift', '$next_monday')");
+            $status_message = "Shift change request approved. It will take effect automatically on Monday.";
+            $msg = "Your request to change your shift hour to $requested_shift was approved and will take effect on Monday.";
+        } else {
+            mysqli_query($conn, "UPDATE employees SET shift_hour = '$requested_shift' WHERE emp_id = '$emp_id'");
+            $status_message = "Shift change request approved successfully.";
+            $msg = "Your request to change your shift hour to $requested_shift was approved.";
+        }
+        
         mysqli_query($conn, "INSERT INTO employee_notifications (emp_id, message) VALUES ('$emp_id', '$msg')");
     } elseif ($action == 'reject') {
         mysqli_query($conn, "UPDATE shift_change_requests SET status = 'rejected' WHERE id = $request_id");
@@ -32,13 +40,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['shift_change_action'])
     }
 }
 
-$gl_filter = $role === 'gl' ? "WHERE e.group_leader_id = '{$_SESSION['emp_id']}'" : "";
+$gl_filter = $role === 'gl' ? "WHERE (e.group_leader_id = '{$_SESSION['emp_id']}' OR r.emp_id = '{$_SESSION['emp_id']}')" : "";
 
 // FETCH SHIFT REQUESTS
 $shift_requests_sql = "
-    SELECT r.*, e.name, e.employment_type 
+    SELECT r.*, COALESCE(e.name, r.emp_id) as name, e.employment_type 
     FROM shift_change_requests r 
-    JOIN employees e ON r.emp_id = e.emp_id 
+    LEFT JOIN employees e ON r.emp_id = e.emp_id 
     $gl_filter
     ORDER BY CASE WHEN r.status = 'pending' THEN 1 ELSE 2 END, r.created_at DESC
 ";
@@ -133,6 +141,9 @@ $shift_requests_result = mysqli_query($conn, $shift_requests_sql);
                                     <td><span class="badge bg-<?php echo strtolower($row['status']); ?>"><?php echo strtoupper($row['status']); ?></span></td>
                                     <td>
                                         <?php if ($row['status'] === 'pending'): ?>
+                                            <?php if ($role === 'gl' && $row['emp_id'] === $_SESSION['emp_id']): ?>
+                                                <span style="color: #d97706; font-size: 13px; font-weight: 600;">⏳ Awaiting TL/Admin</span>
+                                            <?php else: ?>
                                             <form method="POST" action="" style="display:inline;">
                                                 <input type="hidden" name="shift_change_action" value="1">
                                                 <input type="hidden" name="request_id" value="<?php echo $row['id']; ?>">
@@ -149,6 +160,7 @@ $shift_requests_result = mysqli_query($conn, $shift_requests_sql);
                                                 <input type="hidden" name="action" value="reject">
                                                 <button type="submit" class="btn btn-reject">Reject</button>
                                             </form>
+                                            <?php endif; ?>
                                         <?php else: ?>
                                             <span style="color: #94a3b8; font-size: 13px; font-weight: 600;">Processed</span>
                                         <?php endif; ?>

@@ -7,8 +7,8 @@ if (!isset($_SESSION['user_id'])) {
 include 'db_connect.php';
 /** @var mysqli $conn */
 
-$role = $_SESSION['role'];
-$is_admin = in_array($role, ['admin', 'hr']);
+$role = strtolower($_SESSION['role'] ?? '');
+$is_admin = in_array($role, ['admin', 'hr', 'tl']);
 $msg = "";
 $error = "";
 
@@ -149,7 +149,7 @@ $holidays = mysqli_query($conn, "SELECT * FROM public_holidays ORDER BY holiday_
     <title>Public Holidays - WeRide</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
         body { display: flex; height: 100vh; background-color: #f8fafc; color: #0f172a; }
         .main-content { flex: 1; padding: 40px; overflow-y: auto; }
         .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }

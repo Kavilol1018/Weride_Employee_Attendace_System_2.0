@@ -29,7 +29,7 @@ $sql_leave = "CREATE TABLE IF NOT EXISTS `leave_requests` (
     `end_date` DATE NOT NULL,
     `half_day_type` VARCHAR(10) DEFAULT 'N/A',
     `reason` TEXT DEFAULT NULL,
-    `status` ENUM('pending', 'pending_hr', 'approved', 'rejected') DEFAULT 'pending',
+    `status` ENUM('pending', 'pending_hr', 'approved', 'rejected', 'cancelled') DEFAULT 'pending',
     `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;";
@@ -69,6 +69,43 @@ $sql_access = "CREATE TABLE IF NOT EXISTS `access_logs` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;";
 mysqli_query($conn, $sql_access);
 
+// 3.7 Create WeRide Insides (Community Feed) tables if missing
+$sql_c_posts = "CREATE TABLE IF NOT EXISTS `community_posts` (
+    `id` INT(11) NOT NULL AUTO_INCREMENT,
+    `emp_id` VARCHAR(50) NOT NULL,
+    `content` TEXT DEFAULT NULL,
+    `media_type` ENUM('none', 'photo', 'video') NOT NULL DEFAULT 'none',
+    `media_url` VARCHAR(255) DEFAULT NULL,
+    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_emp_id` (`emp_id`),
+    KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;";
+mysqli_query($conn, $sql_c_posts);
+
+$sql_c_comments = "CREATE TABLE IF NOT EXISTS `community_comments` (
+    `id` INT(11) NOT NULL AUTO_INCREMENT,
+    `post_id` INT(11) NOT NULL,
+    `emp_id` VARCHAR(50) NOT NULL,
+    `content` TEXT NOT NULL,
+    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_post_id` (`post_id`),
+    KEY `idx_emp_id` (`emp_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;";
+mysqli_query($conn, $sql_c_comments);
+
+$sql_c_likes = "CREATE TABLE IF NOT EXISTS `community_likes` (
+    `id` INT(11) NOT NULL AUTO_INCREMENT,
+    `post_id` INT(11) NOT NULL,
+    `emp_id` VARCHAR(50) NOT NULL,
+    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `unique_post_user` (`post_id`, `emp_id`),
+    KEY `idx_post_id` (`post_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;";
+mysqli_query($conn, $sql_c_likes);
+
 // 4. Ensure missing columns on employees table
 $emp_columns = [
     'onboarding_date' => "ALTER TABLE employees ADD COLUMN onboarding_date DATE DEFAULT NULL",
@@ -79,7 +116,8 @@ $emp_columns = [
     'welabel_id' => "ALTER TABLE employees ADD COLUMN welabel_id VARCHAR(100) DEFAULT NULL",
     'group_leader_id' => "ALTER TABLE employees ADD COLUMN group_leader_id VARCHAR(50) DEFAULT NULL",
     'unpaid_leave_balance' => "ALTER TABLE employees ADD COLUMN unpaid_leave_balance DECIMAL(5,1) DEFAULT 0.0",
-    'hospitalization_leave_balance' => "ALTER TABLE employees ADD COLUMN hospitalization_leave_balance DECIMAL(5,1) DEFAULT 60.0"
+    'hospitalization_leave_balance' => "ALTER TABLE employees ADD COLUMN hospitalization_leave_balance DECIMAL(5,1) DEFAULT 60.0",
+    'last_activity' => "ALTER TABLE employees ADD COLUMN last_activity DATETIME NULL DEFAULT NULL"
 ];
 
 $cols_res = mysqli_query($conn, "SHOW COLUMNS FROM employees");
@@ -100,7 +138,8 @@ foreach ($emp_columns as $col => $alter_sql) {
 $att_columns = [
     'work_hours' => "ALTER TABLE attendance_logs ADD COLUMN work_hours DECIMAL(5,2) DEFAULT 0.00",
     'notes' => "ALTER TABLE attendance_logs ADD COLUMN notes TEXT DEFAULT NULL",
-    'flag' => "ALTER TABLE attendance_logs ADD COLUMN flag ENUM('None', 'Late', 'Early', 'Both') DEFAULT 'None'"
+    'flag' => "ALTER TABLE attendance_logs ADD COLUMN flag ENUM('None', 'Late', 'Early', 'Both') DEFAULT 'None'",
+    'source' => "ALTER TABLE attendance_logs ADD COLUMN source ENUM('manual','leave_form') NOT NULL DEFAULT 'manual'"
 ];
 
 $att_cols_res = mysqli_query($conn, "SHOW COLUMNS FROM attendance_logs");
@@ -125,7 +164,8 @@ $leave_columns = [
     'rejection_topic' => "ALTER TABLE leave_requests ADD COLUMN rejection_topic VARCHAR(255) DEFAULT NULL",
     'rejection_reason' => "ALTER TABLE leave_requests ADD COLUMN rejection_reason TEXT DEFAULT NULL",
     'start_time' => "ALTER TABLE leave_requests ADD COLUMN start_time TIME DEFAULT NULL",
-    'end_time' => "ALTER TABLE leave_requests ADD COLUMN end_time TIME DEFAULT NULL"
+    'end_time' => "ALTER TABLE leave_requests ADD COLUMN end_time TIME DEFAULT NULL",
+    'created_at' => "ALTER TABLE leave_requests ADD COLUMN created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"
 ];
 
 $leave_cols_res = mysqli_query($conn, "SHOW COLUMNS FROM leave_requests");
@@ -141,3 +181,4 @@ foreach ($leave_columns as $col => $alter_sql) {
         @mysqli_query($conn, $alter_sql);
     }
 }
+@mysqli_query($conn, "ALTER TABLE leave_requests MODIFY COLUMN status ENUM('pending', 'pending_hr', 'approved', 'rejected', 'cancelled') DEFAULT 'pending'");

@@ -120,11 +120,11 @@ $requests_result = mysqli_query($conn, $requests_sql);
                             while ($row = mysqli_fetch_assoc($requests_result)) {
                                 $status_class = 'bg-' . $row['status'];
                                 $status_text = ucfirst($row['status']);
-                                $date_display = date('M d, Y h:i A', strtotime($row['created_at']));
+                                $date_display = date('M d, Y H:i', strtotime($row['created_at']));
                                 
                                 echo "<tr>";
                                 echo "<td style='color: #64748b; font-size: 13px; font-weight: 600;'>" . $date_display . "</td>";
-                                echo "<td style='font-weight: 700; color: #0f172a;'>" . htmlspecialchars($row['name']) . "<br><span style='font-size: 12px; color: #64748b; font-weight: 600;'>#" . htmlspecialchars($row['emp_id']) . "</span></td>";
+                                echo "<td style='font-weight: 700; color: #0f172a; text-transform: uppercase;'>" . htmlspecialchars($row['name']) . "<br><span style='font-size: 12px; color: #64748b; font-weight: 600;'>#" . htmlspecialchars($row['emp_id']) . "</span></td>";
                                 echo "<td><span style='background: #f1f5f9; color: #475569; padding: 4px 8px; border-radius: 6px; font-size: 13px; font-weight: 600;'>" . htmlspecialchars($row['reason']) . "</span></td>";
                                 echo "<td><span style='background: #eff6ff; color: #1d4ed8; padding: 4px 8px; border-radius: 6px; font-size: 13px; font-weight: 700;'>" . htmlspecialchars($row['duration']) . " mins</span></td>";
                                 echo "<td><span class='badge $status_class'>$status_text</span></td>";

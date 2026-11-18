@@ -49,6 +49,40 @@ if (isset($conn) && $role_slug !== 'employee') {
     $alerts_res = mysqli_query($conn, "SELECT COUNT(*) as cnt FROM system_alerts WHERE is_read = 0");
     if ($alerts_res) $unread_alerts_count = mysqli_fetch_assoc($alerts_res)['cnt'];
 }
+// Global Topbar Notification Bell for all pages
+$global_notif_emp_id = $_SESSION['emp_id'] ?? '';
+$global_notifs = [];
+$global_unread_notifs_cnt = 0;
+if (!empty($global_notif_emp_id) && isset($conn) && $conn instanceof mysqli) {
+    $safe_global_emp_id = mysqli_real_escape_string($conn, $global_notif_emp_id);
+    $global_notif_q = @mysqli_query($conn, "SELECT id, message, is_read, created_at FROM employee_notifications WHERE emp_id = '$safe_global_emp_id' ORDER BY created_at DESC LIMIT 20");
+    if ($global_notif_q) {
+        while ($gn = mysqli_fetch_assoc($global_notif_q)) {
+            $global_notifs[] = $gn;
+            if ((int)$gn['is_read'] === 0) $global_unread_notifs_cnt++;
+        }
+    }
+    // Cache profile picture in session if not set yet
+    if (!isset($_SESSION['profile_picture'])) {
+        $pic_res = @mysqli_query($conn, "SELECT profile_picture FROM employees WHERE emp_id = '$safe_global_emp_id' LIMIT 1");
+        if ($pic_res && $pr = mysqli_fetch_assoc($pic_res)) {
+            $_SESSION['profile_picture'] = $pr['profile_picture'];
+        } else {
+            $_SESSION['profile_picture'] = null;
+        }
+    }
+}
+if (!function_exists('get_sidebar_notif_time')) {
+    function get_sidebar_notif_time($datetime) {
+        $time = strtotime($datetime);
+        $diff = time() - $time;
+        if ($diff < 60) return "Just now";
+        if ($diff < 3600) return floor($diff / 60) . "m ago";
+        if ($diff < 86400) return floor($diff / 3600) . "h ago";
+        if ($diff < 604800) return floor($diff / 86400) . "d ago";
+        return date("M j, Y", $time);
+    }
+}
 ?>
 <style>
     /* Base Sidebar Overrides */
@@ -152,6 +186,9 @@ if (isset($conn) && $role_slug !== 'employee') {
     .main-content {
         min-width: 0 !important;
         overflow-x: hidden !important;
+        overflow-y: auto !important;
+        height: 100vh;
+        width: 100%;
     }
 
     .table-container {
@@ -309,7 +346,7 @@ if (isset($conn) && $role_slug !== 'employee') {
     }
 
     .nav-group.open .nav-dropdown {
-        max-height: 300px;
+        max-height: 800px;
     }
 
     .nav-dropdown .nav-item {
@@ -443,6 +480,56 @@ if (isset($conn) && $role_slug !== 'employee') {
             right: -40px; /* Make sure the button is fully visible */
         }
     }
+
+    /* Modern Logout Button */
+    .sidebar-logout-btn {
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        background: #fef2f2;
+        color: #ef4444;
+        border: 1px solid #fee2e2;
+        padding: 12px 16px;
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 14px;
+        transition: all 0.2s ease-in-out;
+        cursor: pointer;
+        box-sizing: border-box;
+    }
+
+    .sidebar-logout-btn:hover {
+        background: #ef4444;
+        color: #ffffff !important;
+        border-color: #ef4444;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+    }
+
+    .sidebar-logout-btn svg {
+        transition: transform 0.2s ease-in-out;
+        flex-shrink: 0;
+    }
+
+    .sidebar-logout-btn:hover svg {
+        transform: translateX(3px);
+    }
+
+    /* Dark mode overrides for logout button */
+    body.dark-mode .sidebar-logout-btn {
+        background: rgba(239, 68, 68, 0.12);
+        color: #f87171;
+        border-color: rgba(239, 68, 68, 0.25);
+    }
+
+    body.dark-mode .sidebar-logout-btn:hover {
+        background: #ef4444;
+        color: #ffffff !important;
+        border-color: #ef4444;
+        box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
+    }
 </style>
 
 <!-- Mobile Overlay -->
@@ -469,11 +556,10 @@ if (isset($conn) && $role_slug !== 'employee') {
             </li>
         </a>
 
-        <?php if ($role_slug === 'gl'): ?>
-            <!-- Live Attendance (GL only) -->
-            <a href="gl_live_attendance.php" style="text-decoration: none;">
-                <li class="nav-item <?php echo strpos($current_page, 'live_attendance') !== false ? 'active' : ''; ?>">Live
-                    Attendance</li>
+        <?php if ($role_slug === 'gl' || $role_slug === 'tl'): ?>
+            <!-- Live Attendance (GL & TL) -->
+            <a href="<?php echo $role_slug; ?>_live_attendance.php" style="text-decoration: none;">
+                <li class="nav-item <?php echo strpos($current_page, 'live_attendance') !== false ? 'active' : ''; ?>">Live Attendance</li>
             </a>
         <?php endif; ?>
 
@@ -601,7 +687,7 @@ if (isset($conn) && $role_slug !== 'employee') {
 
         <!-- Attendance Dropdown -->
         <?php
-        $attendance_pages = ['admin_attendance.php', 'attendance_report.php', 'public_holidays.php', 'leave_application.php', 'employee_stats.php', 'manage_attendance_alerts.php', 'work_hours_report.php', 'employee_leave_history.php', 'manage_leave_requests.php', 'manage_shift_requests.php'];
+        $attendance_pages = ['admin_attendance.php', 'attendance_report.php', 'public_holidays.php', 'leave_application.php', 'employee_stats.php', 'manage_attendance_alerts.php', 'work_hours_report.php', 'employee_leave_history.php', 'manage_leave_requests.php', 'manage_shift_requests.php', 'override_attendance.php'];
         $is_attendance_open = in_array($current_page, $attendance_pages);
         ?>
         <li class="nav-group <?php echo $is_attendance_open ? 'open' : ''; ?>" onclick="toggleDropdown(this)">
@@ -661,17 +747,19 @@ if (isset($conn) && $role_slug !== 'employee') {
                     </a>
                 <?php endif; ?>
 
-                <!-- Full Statistics (non-employee) -->
-                <?php if ($role_slug !== 'employee'): ?>
-                    <a href="admin_attendance.php" style="text-decoration: none;">
-                        <li class="nav-item <?php echo $current_page == 'admin_attendance.php' ? 'active' : ''; ?>">Calendar</li>
-                    </a>
-                <?php endif; ?>
+                <!-- Calendar (all roles) -->
+                <a href="admin_attendance.php" style="text-decoration: none;">
+                    <li class="nav-item <?php echo $current_page == 'admin_attendance.php' ? 'active' : ''; ?>">Calendar</li>
+                </a>
 
                 <!-- Public Holidays + Manage items (non-employee) -->
                 <?php if ($role_slug !== 'employee'): ?>
                     <a href="public_holidays.php" style="text-decoration: none;">
                         <li class="nav-item <?php echo $current_page == 'public_holidays.php' ? 'active' : ''; ?>">Public Holidays</li>
+                    </a>
+
+                    <a href="override_attendance.php" style="text-decoration: none;">
+                        <li class="nav-item <?php echo $current_page == 'override_attendance.php' ? 'active' : ''; ?>">Override Attendance</li>
                     </a>
 
                     <a href="manage_leave_requests.php" style="text-decoration: none;">
@@ -697,6 +785,14 @@ if (isset($conn) && $role_slug !== 'employee') {
 
 
 
+        <!-- WeRide Insides -->
+        <a href="weride_insides.php" style="text-decoration: none;">
+            <li class="nav-item <?php echo $current_page == 'weride_insides.php' ? 'active' : ''; ?>" style="display: flex; align-items: center; justify-content: space-between;">
+                <span>WeRide Insides</span>
+                <span style="font-size: 10px; background: linear-gradient(135deg, #00a6d6, #0284c7); color: white; padding: 2px 7px; border-radius: 999px; font-weight: 700; letter-spacing: 0.5px;">FEED</span>
+            </li>
+        </a>
+
         <!-- Profile -->
         <li class="nav-item <?php echo $current_page == 'profile.php' ? 'active' : ''; ?>">
             <a href="profile.php"
@@ -706,10 +802,99 @@ if (isset($conn) && $role_slug !== 'employee') {
     </ul>
 
     <div style="padding: 20px; border-top: 1px solid rgba(0,0,0,0.05);">
+        <?php if ($current_page !== 'admin_attendance.php'): ?>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding: 0 10px;">
+            <div id="theme-text-container" style="display: flex; align-items: center; gap: 10px; color: #64748b; font-weight: 600;">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z">
+                    </path>
+                </svg> Dark mode
+            </div>
+            <button id="theme-toggle-btn" onclick="toggleTheme()" style="width: 36px; height: 36px; border-radius: 50%; border: none; background: #e2e8f0; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #475569; transition: 0.2s;">
+                <svg id="theme-btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+            </button>
+        </div>
+        <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const currentTheme = localStorage.getItem('theme');
+            const body = document.body;
+            const themeBtn = document.getElementById('theme-toggle-btn');
+            const themeTextContainer = document.getElementById('theme-text-container');
+            const themeBtnIcon = document.getElementById('theme-btn-icon');
 
-        <a href="logout.php"
-            class="text-red-500" style="text-decoration: none; display: block; text-align: center; background: #fee2e2;  padding: 12px; border-radius: 12px; font-weight: 700; transition: 0.2s;">🚪
-            Logout</a>
+            let isCurrentlyDark = body.classList.contains('dark-mode');
+            if (currentTheme === 'dark' || (!currentTheme && window.location.pathname.includes('dashboard.php'))) {
+                body.classList.add('dark-mode');
+                isCurrentlyDark = true;
+            }
+
+            if (themeBtn) {
+                updateToggleUI(isCurrentlyDark);
+
+                window.toggleTheme = function() {
+                    isCurrentlyDark = !isCurrentlyDark;
+                    updateToggleUI(isCurrentlyDark);
+                    
+                    if (isCurrentlyDark) {
+                        body.classList.add('dark-mode');
+                    } else {
+                        body.classList.remove('dark-mode');
+                    }
+                    
+                    localStorage.setItem('theme', isCurrentlyDark ? 'dark' : 'light');
+                    document.cookie = "theme=" + (isCurrentlyDark ? "dark" : "light") + "; path=/; max-age=31536000";
+                    
+                    if (typeof updateChartTheme === 'function') {
+                        updateChartTheme(isCurrentlyDark);
+                    }
+                };
+
+                function updateToggleUI(isDark) {
+                    if (themeTextContainer) {
+                        if (isDark) {
+                            themeTextContainer.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="4.22" x2="19.78" y2="5.64"></line></svg> Light mode`;
+                        } else {
+                            themeTextContainer.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg> Dark mode`;
+                        }
+                    }
+                    if (themeBtnIcon) {
+                        if (isDark) {
+                            themeBtnIcon.innerHTML = `<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="4.22" x2="19.78" y2="5.64"></line>`;
+                        } else {
+                            themeBtnIcon.innerHTML = `<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>`;
+                        }
+                    }
+                }
+            }
+        });
+        </script>
+        <?php else: ?>
+        <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            document.body.classList.remove('dark-mode');
+        });
+        </script>
+        <?php endif; ?>
+
+        <?php if (!isset($pwa_head_included)): $pwa_head_included = true; ?>
+            <?php include_once __DIR__ . '/pwa_head.php'; ?>
+        <?php endif; ?>
+        <button type="button" onclick="promptPwaInstall()" class="pwa-install-btn sidebar-logout-btn" style="display:none; margin-bottom: 8px; border: 1px solid rgba(56,189,248,0.3); color: #38bdf8; background: rgba(56,189,248,0.08); cursor: pointer; align-items: center; gap: 8px; width: 100%; border-radius: 8px; padding: 10px 14px; font-weight: 600; font-size: 13px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                <line x1="12" y1="18" x2="12.01" y2="18"></line>
+            </svg>
+            <span>Install App</span>
+        </button>
+        <a href="logout.php" class="sidebar-logout-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16 17 21 12 16 7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+            <span>Logout</span>
+        </a>
     </div>
 </aside>
 
@@ -796,6 +981,22 @@ if (isset($conn) && $role_slug !== 'employee') {
     function toggleMobileSidebar() {
         document.body.classList.toggle('sidebar-open');
     }
+
+    // Inject mobile hamburger button into every topbar (avoids editing 35+ PHP files)
+    document.addEventListener('DOMContentLoaded', function() {
+        var topbar = document.querySelector('.topbar');
+        if (topbar && !topbar.querySelector('.mobile-toggle')) {
+            var btn = document.createElement('button');
+            btn.className = 'mobile-toggle';
+            btn.setAttribute('aria-label', 'Open menu');
+            btn.innerHTML = '☰';
+            btn.onclick = function(e) {
+                e.stopPropagation();
+                toggleMobileSidebar();
+            };
+            topbar.insertBefore(btn, topbar.firstChild);
+        }
+    });
 
     // Mobile: auto-open the active group on page load
     document.addEventListener('DOMContentLoaded', function () {
@@ -904,4 +1105,425 @@ body.dark-mode .ts-dropdown .active {
 body.dark-mode .ts-control input {
     color: #f8fafc;
 }
+body.dark-mode #theme-toggle-btn {
+    background: #334155 !important;
+    color: #cbd5e1 !important;
+    border-color: #475569 !important;
+}
+
+/* ====================================================================
+   GLOBAL TOPBAR NOTIFICATIONS (Available on all pages)
+   ==================================================================== */
+.global-notif-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    z-index: 1000;
+}
+.global-notif-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    color: #475569;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s ease;
+    padding: 0;
+    outline: none;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+.global-notif-btn:hover {
+    background: #f8fafc;
+    border-color: #0284c7;
+    color: #0284c7;
+    transform: translateY(-1px);
+}
+.global-notif-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: #ef4444;
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 700;
+    height: 18px;
+    min-width: 18px;
+    padding: 0 4px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #ffffff;
+    box-sizing: border-box;
+    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.25);
+}
+.global-notif-dropdown {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 8px);
+    width: 330px;
+    max-width: calc(100vw - 32px);
+    max-height: 420px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.15);
+    z-index: 999999;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+    animation: globalNotifFadeIn 0.16s ease-out;
+}
+@keyframes globalNotifFadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.global-notif-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    background: #ffffff;
+}
+.global-notif-header h4 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: #0f172a;
+}
+.global-notif-mark {
+    background: none;
+    border: none;
+    color: #0284c7;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+    transition: color 0.15s ease;
+}
+.global-notif-mark:hover {
+    text-decoration: underline;
+    color: #0369a1;
+}
+.global-notif-list {
+    overflow-y: auto;
+    max-height: 350px;
+    background: #ffffff;
+}
+.global-notif-list::-webkit-scrollbar {
+    width: 6px;
+}
+.global-notif-list::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+.global-notif-item {
+    padding: 11px 15px;
+    border-bottom: 1px solid #f1f5f9;
+    transition: background 0.15s ease;
+    cursor: pointer;
+}
+.global-notif-item:last-child {
+    border-bottom: none;
+}
+.global-notif-item:hover {
+    background: rgba(2, 132, 199, 0.06);
+}
+.global-notif-item.unread {
+    background: #f0f9ff;
+    border-left: 3px solid #0284c7;
+}
+.global-notif-item.unread:hover {
+    background: #e0f2fe;
+}
+.global-notif-msg {
+    font-size: 12px;
+    line-height: 1.45;
+    color: #1e293b;
+    margin-bottom: 3px;
+    word-break: break-word;
+}
+.global-notif-time {
+    font-size: 10px;
+    color: #64748b;
+}
+.global-notif-empty {
+    padding: 24px;
+    text-align: center;
+    font-size: 13px;
+    color: #94a3b8;
+}
+
+/* Dark Mode Support */
+body.dark-mode .global-notif-btn {
+    background: #111c2e;
+    border-color: #253347;
+    color: #94a3b8;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+body.dark-mode .global-notif-btn:hover {
+    background: #1e293b;
+    border-color: #38bdf8;
+    color: #38bdf8;
+}
+body.dark-mode .global-notif-badge {
+    border-color: #111c2e;
+}
+body.dark-mode .global-notif-dropdown {
+    background: #111c2e;
+    border-color: #253347;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+}
+body.dark-mode .global-notif-header {
+    background: #111c2e;
+    border-bottom-color: #253347;
+}
+body.dark-mode .global-notif-header h4 {
+    color: #f8fafc;
+}
+body.dark-mode .global-notif-mark {
+    color: #38bdf8;
+}
+body.dark-mode .global-notif-mark:hover {
+    color: #7dd3fc;
+}
+body.dark-mode .global-notif-list {
+    background: #111c2e;
+}
+body.dark-mode .global-notif-list::-webkit-scrollbar-thumb {
+    background: #334155;
+}
+body.dark-mode .global-notif-item {
+    border-bottom-color: #253347;
+}
+body.dark-mode .global-notif-item:hover {
+    background: rgba(56, 189, 248, 0.08);
+}
+body.dark-mode .global-notif-item.unread {
+    background: rgba(56, 189, 248, 0.12);
+    border-left: 3px solid #38bdf8;
+}
+body.dark-mode .global-notif-item.unread:hover {
+    background: rgba(56, 189, 248, 0.18);
+}
+body.dark-mode .global-notif-msg {
+    color: #f8fafc;
+}
+body.dark-mode .global-notif-time {
+    color: #94a3b8;
+}
+body.dark-mode .global-notif-empty {
+    color: #94a3b8;
+}
+
+@media (max-width: 480px) {
+    .global-notif-dropdown {
+        position: fixed !important;
+        top: 60px !important;
+        right: 12px !important;
+        left: 12px !important;
+        width: auto !important;
+        max-width: calc(100vw - 24px) !important;
+    }
+}
 </style>
+
+<!-- Global Topbar Notification Component -->
+<div id="global-notif-wrapper" class="global-notif-wrapper" style="display: none;">
+    <button type="button" class="global-notif-btn" id="global-notif-btn" onclick="toggleGlobalNotifDropdown(event)" title="Notifications" aria-label="Notifications">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+        </svg>
+        <span class="global-notif-badge" id="global-notif-badge" style="<?= $global_unread_notifs_cnt > 0 ? '' : 'display:none;' ?>"><?= $global_unread_notifs_cnt ?></span>
+    </button>
+    <div class="global-notif-dropdown" id="global-notif-dropdown" style="display: none;">
+        <div class="global-notif-header">
+            <h4>Notifications</h4>
+            <button type="button" class="global-notif-mark" id="global-btn-mark-all" onclick="markAllGlobalNotifsRead(event)" style="<?= $global_unread_notifs_cnt > 0 ? '' : 'display:none;' ?>">Mark read</button>
+        </div>
+        <div class="global-notif-list" id="global-notif-list">
+            <?php if (empty($global_notifs)): ?>
+                <div class="global-notif-empty">No notifications yet.</div>
+            <?php else: ?>
+                <?php foreach ($global_notifs as $gnotif): ?>
+                    <div class="global-notif-item <?= (int)$gnotif['is_read'] === 0 ? 'unread' : '' ?>" onclick="handleGlobalNotifClick(this, '<?= htmlspecialchars(addslashes($gnotif['message']), ENT_QUOTES) ?>')">
+                        <div class="global-notif-msg"><?= htmlspecialchars($gnotif['message']) ?></div>
+                        <div class="global-notif-time"><?= get_sidebar_notif_time($gnotif['created_at']) ?></div>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    function initGlobalNotificationPlacement() {
+        if (window.location.pathname.indexOf('weride_insides.php') !== -1 || document.querySelector('.ci-notif-wrapper')) {
+            const wrapper = document.getElementById('global-notif-wrapper');
+            if (wrapper) wrapper.remove();
+            return;
+        }
+
+        const wrapper = document.getElementById('global-notif-wrapper');
+        if (!wrapper) return;
+
+        const topbarRight = document.querySelector('.topbar-right');
+        const refreshBar = document.querySelector('.topbar .refresh-bar, header.topbar .refresh-bar');
+        const topbar = document.querySelector('.topbar, header.topbar');
+        const genericHeader = document.querySelector('.main-content > .header, .main-content > .page-header, .header, .page-header');
+
+        if (topbarRight) {
+            wrapper.style.marginRight = '4px';
+            const avatar = topbarRight.querySelector('.avatar');
+            if (avatar) {
+                topbarRight.insertBefore(wrapper, avatar);
+            } else {
+                topbarRight.appendChild(wrapper);
+            }
+        } else if (refreshBar && refreshBar.parentNode) {
+            wrapper.style.marginLeft = 'auto';
+            wrapper.style.marginRight = '14px';
+            refreshBar.parentNode.insertBefore(wrapper, refreshBar);
+        } else if (topbar) {
+            const rightContainer = topbar.querySelector('div[style*="display: flex"], div[style*="gap:"], .action-buttons');
+            if (rightContainer && rightContainer !== topbar) {
+                wrapper.style.marginRight = '8px';
+                rightContainer.prepend(wrapper);
+            } else {
+                wrapper.style.marginLeft = 'auto';
+                topbar.appendChild(wrapper);
+            }
+        } else if (genericHeader) {
+            wrapper.style.marginLeft = 'auto';
+            genericHeader.appendChild(wrapper);
+        } else {
+            wrapper.style.position = 'fixed';
+            wrapper.style.top = '16px';
+            wrapper.style.right = '20px';
+            wrapper.style.zIndex = '99999';
+            document.body.appendChild(wrapper);
+        }
+
+        wrapper.style.display = 'inline-flex';
+    }
+
+    window.toggleGlobalNotifDropdown = function(e) {
+        if (e) {
+            e.stopPropagation();
+            e.preventDefault();
+        }
+        const dropdown = document.getElementById('global-notif-dropdown');
+        if (!dropdown) return;
+        const isShown = dropdown.style.display === 'flex' || dropdown.style.display === 'block';
+        dropdown.style.display = isShown ? 'none' : 'flex';
+    };
+
+    window.markAllGlobalNotifsRead = function(e) {
+        if (e) {
+            e.stopPropagation();
+            e.preventDefault();
+        }
+        fetch('api_notifications.php?action=mark_read', {
+            method: 'POST'
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                const badge = document.getElementById('global-notif-badge');
+                if (badge) badge.style.display = 'none';
+                const btnMark = document.getElementById('global-btn-mark-all');
+                if (btnMark) btnMark.style.display = 'none';
+                document.querySelectorAll('.global-notif-item.unread').forEach(item => {
+                    item.classList.remove('unread');
+                });
+            }
+        })
+        .catch(err => console.error('Error marking notifications read:', err));
+    };
+
+    window.handleGlobalNotifClick = function(element, msg) {
+        const m = (msg || '').toLowerCase();
+        const role = '<?= $role_slug ?>';
+        let url = null;
+        if (m.includes('leave')) {
+            url = (role === 'employee' || role === 'qa') ? 'employee_leave_history.php' : 'manage_leave_requests.php';
+        } else if (m.includes('shift')) {
+            url = (role === 'employee' || role === 'qa') ? 'profile.php' : 'manage_shift_requests.php';
+        } else if (m.includes('break') || m.includes('lunch')) {
+            url = (role === 'employee' || role === 'qa') ? 'employee_lunchtime_history.php' : 'manage_requests.php';
+        } else if (m.includes('insides') || m.includes('mentioned') || m.includes('post') || m.includes('comment')) {
+            url = 'weride_insides.php';
+        }
+        if (url) {
+            window.location.href = url;
+        }
+    };
+
+    function updateGlobalNotifUI(notifications, unreadCount) {
+        const badge = document.getElementById('global-notif-badge');
+        const btnMark = document.getElementById('global-btn-mark-all');
+        const list = document.getElementById('global-notif-list');
+
+        if (badge) {
+            badge.innerText = unreadCount;
+            badge.style.display = unreadCount > 0 ? 'flex' : 'none';
+        }
+        if (btnMark) {
+            btnMark.style.display = unreadCount > 0 ? 'inline-block' : 'none';
+        }
+
+        if (list && notifications) {
+            if (notifications.length === 0) {
+                list.innerHTML = '<div class="global-notif-empty">No notifications yet.</div>';
+            } else {
+                let html = '';
+                notifications.forEach(n => {
+                    const unreadCls = parseInt(n.is_read) === 0 ? 'unread' : '';
+                    const safeMsg = (n.message || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                    const time = n.time_formatted || n.created_at;
+                    html += '<div class="global-notif-item ' + unreadCls + '" onclick="handleGlobalNotifClick(this, \'' + safeMsg + '\')">' +
+                                '<div class="global-notif-msg">' + safeMsg + '</div>' +
+                                '<div class="global-notif-time">' + time + '</div>' +
+                            '</div>';
+                });
+                list.innerHTML = html;
+            }
+        }
+    }
+
+    function pollGlobalNotifications() {
+        fetch('api_notifications.php?action=get')
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                updateGlobalNotifUI(res.notifications, res.unread_count);
+            }
+        })
+        .catch(() => {});
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        initGlobalNotificationPlacement();
+        setInterval(pollGlobalNotifications, 45000);
+    });
+
+    document.addEventListener('click', function(e) {
+        const wrapper = document.getElementById('global-notif-wrapper');
+        const dropdown = document.getElementById('global-notif-dropdown');
+        if (dropdown && dropdown.style.display !== 'none') {
+            if (!wrapper || !wrapper.contains(e.target)) {
+                dropdown.style.display = 'none';
+            }
+        }
+    });
+})();
+</script>

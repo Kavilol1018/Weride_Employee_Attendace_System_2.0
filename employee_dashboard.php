@@ -9,7 +9,7 @@ include 'db_connect.php';
 
 $current_employee_id = $_SESSION['emp_id']; 
 
-$emp_query = mysqli_query($conn, "SELECT employment_type, lunch_window, name, annual_leave_balance, sick_leave_balance, shift_hour, group_leader_id FROM employees WHERE emp_id = '$current_employee_id'");
+$emp_query = mysqli_query($conn, "SELECT employment_type, lunch_window, name, annual_leave_balance, sick_leave_balance, shift_hour, group_leader_id, profile_picture FROM employees WHERE emp_id = '$current_employee_id'");
 $emp_data = mysqli_fetch_assoc($emp_query);
 $employment_type = $emp_data['employment_type'] ?? 'full_time';
 $lunch_window = $emp_data['lunch_window'] ?? '12:00-13:00';
@@ -34,11 +34,24 @@ $total_override_mins = $override_row_limit['total_override'] ? (int)$override_ro
 $total_lunch_limit = 60 + $total_override_mins;
 
 // VALIDATE IP (COMPANY WIFI)
-$allowed_ips = ['127.0.0.1', '::1', '10.22.7.117', '211.25.36.214', '113.211.196.97', '182.62.34.248'];
-$user_ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'];
-if (strpos($user_ip, ',') !== false) { $user_ip = explode(',', $user_ip)[0]; }
-$user_ip = trim($user_ip);
-$is_valid_ip = in_array($user_ip, $allowed_ips) || strpos($user_ip, '10.22.') === 0 || strpos($user_ip, 'fe80:') === 0 || strpos($user_ip, '211.25.') === 0 || strpos($user_ip, '113.211.') === 0 || strpos($user_ip, '182.62.') === 0;
+$allowed_ips = ['127.0.0.1', '::1'];
+$raw_x_forwarded = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '';
+$raw_remote = $_SERVER['REMOTE_ADDR'] ?? '';
+
+$is_valid_ip = false;
+$allowed_public_ips = ['113.211.196.97', '211.25.36.214'];
+foreach ($allowed_public_ips as $pub_ip) {
+    if (strpos($raw_x_forwarded, $pub_ip) !== false || strpos($raw_remote, $pub_ip) !== false) {
+        $is_valid_ip = true;
+    }
+}
+if (strpos($raw_x_forwarded, '10.22.') !== false || strpos($raw_remote, '10.22.') !== false) {
+    $is_valid_ip = true;
+}
+if ($raw_remote === '127.0.0.1' || $raw_remote === '::1') {
+    $is_valid_ip = true;
+}
+
 
 // VALIDATE TIME (LUNCH WINDOW)
 date_default_timezone_set('Asia/Kuala_Lumpur');
@@ -75,6 +88,7 @@ $has_early_leave = mysqli_num_rows(mysqli_query($conn, $leave_check_sql)) > 0;
 $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
 $is_mobile = preg_match("/(android|avantgo|blackberry|bolt|boost|cricket|docomo|fone|hiptop|mini|mobi|palm|phone|pie|tablet|up\.browser|up\.link|webos|wos)/i", $user_agent);
 
+
 // POST ACTIONS
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
@@ -83,14 +97,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     // CLOCK IN ACTION
     if (isset($_POST['clock_in'])) {
-        // if (!$is_valid_ip) {
-        //     header("Location: employee_dashboard.php?msg=" . urlencode("Action Denied: Company WiFi required."));
-        //     exit();
-        // }
-        // if ($is_mobile) {
-        //     header("Location: employee_dashboard.php?msg=" . urlencode("Action Denied: Clock In must be done on a workstation, not a mobile device."));
-        //     exit();
-        // }
+        if (!$is_valid_ip) {
+            header("Location: employee_dashboard.php?msg=" . urlencode("Action Denied: Company WiFi required."));
+            exit();
+        }
+        if ($is_mobile) {
+            header("Location: employee_dashboard.php?msg=" . urlencode("Action Denied: Clock In must be done on a workstation, not a mobile device."));
+            exit();
+        }
         
         // Get employee data if not already fetched
             $emp_data_res = mysqli_query($conn, "SELECT shift_hour FROM employees WHERE emp_id = '$current_employee_id'");
@@ -120,14 +134,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     // CLOCK OUT ACTION
     if (isset($_POST['clock_out'])) {
-        // if (!$is_valid_ip) {
-        //     header("Location: employee_dashboard.php?msg=" . urlencode("Action Denied: Company WiFi required."));
-        //     exit();
-        // }
-        // if ($is_mobile) {
-        //     header("Location: employee_dashboard.php?msg=" . urlencode("Action Denied: Clock Out must be done on a workstation, not a mobile device."));
-        //     exit();
-        // }
+        if (!$is_valid_ip) {
+            header("Location: employee_dashboard.php?msg=" . urlencode("Action Denied: Company WiFi required."));
+            exit();
+        }
+        if ($is_mobile) {
+            header("Location: employee_dashboard.php?msg=" . urlencode("Action Denied: Clock Out must be done on a workstation, not a mobile device."));
+            exit();
+        }
         if ($has_clocked_in) {
             $emp_data_res = mysqli_query($conn, "SELECT shift_hour FROM employees WHERE emp_id = '$current_employee_id'");
             $emp_data = mysqli_fetch_assoc($emp_data_res);
@@ -201,6 +215,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             header("Location: employee_dashboard.php?msg=" . urlencode("Action Denied: Company WiFi required."));
             exit();
         }
+        if ($is_mobile) {
+            header("Location: employee_dashboard.php?msg=" . urlencode("Action Denied: Meal Out must be done on a workstation."));
+            exit();
+        }
         $sql = "INSERT INTO lunch_breaks (employee_id, status) VALUES ('$current_employee_id', 'on_break')";
         if (mysqli_query($conn, $sql)) {
             header("Location: employee_dashboard.php?msg=" . urlencode("Meal Out successful!"));
@@ -209,6 +227,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     } elseif (isset($_POST['end_break'])) {
         if (!$is_valid_ip) {
             header("Location: employee_dashboard.php?msg=" . urlencode("Action Denied: Company WiFi required."));
+            exit();
+        }
+        if ($is_mobile) {
+            header("Location: employee_dashboard.php?msg=" . urlencode("Action Denied: Meal In must be done on a workstation."));
             exit();
         }
         $sql = "UPDATE lunch_breaks SET status = 'returned', break_end = CURRENT_TIMESTAMP WHERE employee_id = '$current_employee_id' AND status = 'on_break'";
@@ -277,12 +299,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             
             if (in_array($ext, $allowed_ext)) {
                 $upload_dir = 'uploads/medical_certificates/';
-                if (!is_dir($upload_dir)) { mkdir($upload_dir, 0777, true); }
+                $upload_abs_dir = rtrim($_SERVER['DOCUMENT_ROOT'], '/') . '/' . $upload_dir;
+                if (!is_dir($upload_abs_dir)) { mkdir($upload_abs_dir, 0755, true); }
                 $safe_name = preg_replace('/[^A-Za-z0-9]/', '', $employee_name);
                 $new_filename = $safe_name . '_' . $start_date . '_' . $end_date . '.' . $ext;
+                $dest_abs = $upload_abs_dir . $new_filename;
                 $dest = $upload_dir . $new_filename;
                 
-                if (move_uploaded_file($_FILES['medical_certificate']['tmp_name'], $dest)) {
+                if (move_uploaded_file($_FILES['medical_certificate']['tmp_name'], $dest_abs)) {
                     $mc_path = $dest;
                 } else {
                     $error = "Failed to upload medical certificate.";
@@ -293,7 +317,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
 
         if (empty($error)) {
-            $capacity_check = check_leave_capacity($conn, $start_date, $end_date, $current_employee_id);
+            $capacity_check = check_leave_capacity($conn, $start_date, $end_date, $current_employee_id, $leave_type);
             if ($capacity_check !== true) {
                 header("Location: employee_dashboard.php?msg=" . urlencode($capacity_check));
                 exit();
@@ -330,6 +354,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             header("Location: employee_dashboard.php?msg=" . urlencode("Action Denied: Company WiFi required."));
             exit();
         }
+        if ($is_mobile) {
+            header("Location: employee_dashboard.php?msg=" . urlencode("Action Denied: Short Break must be done on a workstation."));
+            exit();
+        }
         $sql = "INSERT INTO short_breaks (emp_id, period, status) VALUES ('$current_employee_id', 'pre_lunch', 'on_break')";
         mysqli_query($conn, $sql);
         header("Location: employee_dashboard.php");
@@ -337,6 +365,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     } elseif (isset($_POST['end_short_break'])) {
         if (!$is_valid_ip) {
             header("Location: employee_dashboard.php?msg=" . urlencode("Action Denied: Company WiFi required."));
+            exit();
+        }
+        if ($is_mobile) {
+            header("Location: employee_dashboard.php?msg=" . urlencode("Action Denied: Short Break must be done on a workstation."));
             exit();
         }
         $break_query = mysqli_query($conn, "SELECT id, overtime_notified, TIMESTAMPDIFF(MINUTE, break_start, NOW()) as duration_mins FROM short_breaks WHERE emp_id = '$current_employee_id' AND status = 'on_break'");
@@ -379,6 +411,7 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WeRide - Employee Dashboard</title>
+    <?php include 'pwa_head.php'; ?>
     <link rel="stylesheet" href="assets/css/dark_mode.css?v=<?php echo time(); ?>">
     <script src="assets/js/theme_toggle.js"></script>
     <style>
@@ -393,7 +426,8 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
         .btn-primary:hover { background-color: #2563eb; }
         .btn-danger { background-color: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px; }
         .btn-secondary { background-color: #e2e8f0; color: #64748b; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: not-allowed; font-size: 14px; }
-        .avatar { width: 35px; height: 35px; background-color: #1e293b; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .avatar { width: 35px; height: 35px; background-color: #1e293b; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; overflow: hidden; flex-shrink: 0; }
+        .avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
 
         .content { padding: 0 40px 40px 40px; display: flex; flex-direction: column; gap: 20px; }
 
@@ -423,7 +457,8 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
         .timer-circle.purple { background: #faf5ff; border: 1px solid #f3e8ff; color: #a855f7; }
         .timer-circle svg { width: 32px; height: 32px; }
 
-        .timer-display { font-size: 48px; font-weight: 800; color: #0f172a; line-height: 1; margin-bottom: 8px; }
+        .timer-display { font-size: 48px; font-weight: 800; color: #0f172a; line-height: 1; margin-bottom: 8px; transition: color 0.3s; }
+        .timer-display.negative { color: #ef4444 !important; }
         .timer-subtext { font-size: 14px; color: #64748b; font-weight: 500; margin-bottom: 30px; }
 
         .action-form { width: 100%; max-width: 400px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
@@ -534,7 +569,16 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
                         <?php endif; ?>
                     </form>
                 <?php endif; ?>
-                <a href="profile.php" class="avatar" style="text-decoration: none;"><?php echo strtoupper(substr($employee_name, 0, 1)); ?></a>
+                <a href="profile.php" class="avatar" style="text-decoration: none;" title="My Profile">
+                    <?php if (!empty($emp_data['profile_picture']) && file_exists($emp_data['profile_picture'])): ?>
+                        <img src="<?php echo htmlspecialchars($emp_data['profile_picture']); ?>" alt="Profile">
+                    <?php else: ?>
+                        <?php echo strtoupper(substr($employee_name, 0, 1)); ?>
+                    <?php endif; ?>
+                </a>
+                <button type="button" onclick="promptPwaInstall()" class="pwa-install-btn" style="display:none; align-items:center; gap:6px; background:#0f172a; color:#38bdf8; border:1px solid #38bdf8; padding:8px 14px; border-radius:8px; font-weight:600; font-size:13px; cursor:pointer;" title="Install WeRide App">
+                    <span>📲</span> <span>App</span>
+                </button>
             </div>
         </header>
 
@@ -581,8 +625,8 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
                         <div class="info-label">Today's Attendance</div>
                         <div class="info-value" style="color: #10b981; font-size: 14px;">
                             <?php 
-                                $ci = !empty($today_att['clock_in']) ? date('h:i A', strtotime($today_att['clock_in'])) : '--:--';
-                                $co = !empty($today_att['clock_out']) ? date('h:i A', strtotime($today_att['clock_out'])) : '--:--';
+                                $ci = !empty($today_att['clock_in']) ? date('H:i', strtotime($today_att['clock_in'])) : '--:--';
+                                $co = !empty($today_att['clock_out']) ? date('H:i', strtotime($today_att['clock_out'])) : '--:--';
                                 echo "IN: $ci <br> OUT: $co";
                             ?>
                         </div>
@@ -624,11 +668,12 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
                         }
                         $is_negative = $remaining_sec < 0;
                         $abs_sec = abs($remaining_sec);
-                        $rem_min = floor($abs_sec / 60);
-                        $rem_sec = $abs_sec % 60;
+                        $rem_h = floor($abs_sec / 3600);
+                        $rem_m = floor(($abs_sec % 3600) / 60);
+                        $rem_s = $abs_sec % 60;
                         $lunch_sign = $is_negative ? '-' : '';
                     ?>
-                    <div class="timer-display" id="lunch-timer" data-seconds="<?php echo $remaining_sec; ?>" data-active="<?php echo $is_on_break ? '1' : '0'; ?>"><?php echo $lunch_sign . sprintf("%02d:%02d", $rem_min, $rem_sec); ?></div>
+                    <div class="timer-display <?php echo $is_negative ? 'negative' : ''; ?>" id="lunch-timer" data-seconds="<?php echo $remaining_sec; ?>" data-active="<?php echo $is_on_break ? '1' : '0'; ?>"><?php echo $lunch_sign . sprintf("%02d:%02d:%02d", $rem_h, $rem_m, $rem_s); ?></div>
                     <div class="timer-subtext">Remaining out of <?php echo $total_lunch_limit; ?> min</div>
                     
                     <form method="POST" action="" class="action-form">
@@ -653,6 +698,10 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
                             </svg>
                             Request / Force Start Override
                         </a>
+                
+                <button type="button" onclick="promptPwaInstall()" class="pwa-install-btn" style="display:none; align-items:center; gap:6px; background:#0f172a; color:#38bdf8; border:1px solid #38bdf8; padding:8px 14px; border-radius:8px; font-weight:600; font-size:13px; cursor:pointer;" title="Install WeRide App">
+                    <span>📲</span> <span>App</span>
+                </button>
                     </div>
                 </div>
 
@@ -682,11 +731,12 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
                         }
                         $is_negative_sb = $remaining_sb_sec < 0;
                         $abs_sb_sec = abs($remaining_sb_sec);
-                        $rem_sb_min = floor($abs_sb_sec / 60);
-                        $rem_sb_sec = $abs_sb_sec % 60;
+                        $rem_sb_h = floor($abs_sb_sec / 3600);
+                        $rem_sb_m = floor(($abs_sb_sec % 3600) / 60);
+                        $rem_sb_s = $abs_sb_sec % 60;
                         $sb_sign = $is_negative_sb ? '-' : '';
                     ?>
-                    <div class="timer-display" id="short-break-timer" data-seconds="<?php echo $remaining_sb_sec; ?>" data-active="<?php echo $is_on_short_break ? '1' : '0'; ?>"><?php echo $sb_sign . sprintf("%02d:%02d", $rem_sb_min, $rem_sb_sec); ?></div>
+                    <div class="timer-display <?php echo $is_negative_sb ? 'negative' : ''; ?>" id="short-break-timer" data-seconds="<?php echo $remaining_sb_sec; ?>" data-active="<?php echo $is_on_short_break ? '1' : '0'; ?>"><?php echo $sb_sign . sprintf("%02d:%02d:%02d", $rem_sb_h, $rem_sb_m, $rem_sb_s); ?></div>
                     <div class="timer-subtext">Remaining Short Break Time</div>
                     
                     <form method="POST" action="" class="action-form">
@@ -707,6 +757,10 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
                     </svg>
                     Request Leave / Half-Day
                 </a>
+                
+                <button type="button" onclick="promptPwaInstall()" class="pwa-install-btn" style="display:none; align-items:center; gap:6px; background:#0f172a; color:#38bdf8; border:1px solid #38bdf8; padding:8px 14px; border-radius:8px; font-weight:600; font-size:13px; cursor:pointer;" title="Install WeRide App">
+                    <span>📲</span> <span>App</span>
+                </button>
             </div>
 
         </div>
@@ -756,7 +810,7 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
             <form method="POST" action="" enctype="multipart/form-data" style="text-align: left;" id="leaveModalForm">
                 <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                <div class="grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
                     <!-- Row 1: Name & App Date -->
                     <div>
                         <label class="text-slate-900" style="display: block; font-size: 13px; font-weight: 700;  margin-bottom: 6px;"><span class="text-red-500" >*</span> Full Name of Employee</label>
@@ -911,6 +965,11 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
                 sec--;
                 el.setAttribute('data-seconds', sec);
                 let isNeg = sec < 0;
+                if (isNeg) {
+                    el.classList.add('negative');
+                } else {
+                    el.classList.remove('negative');
+                }
                 let absSec = Math.abs(sec);
                 let m = Math.floor(absSec / 60);
                 let s = absSec % 60;
@@ -1041,7 +1100,20 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
             }
         <?php endif; ?>
     </script>
-
+    <script>
+        // Prevent tab closure if clocked in
+        let isClockedIn = <?php echo ($has_clocked_in && !$has_clocked_out) ? 'true' : 'false'; ?>;
+        let isSubmitting = false;
+        document.addEventListener('submit', function() {
+            isSubmitting = true;
+        });
+        window.addEventListener('beforeunload', function (e) {
+            if (isClockedIn && !isSubmitting) {
+                e.preventDefault();
+                e.returnValue = 'You are still clocked in. Please remember to clock out before leaving!';
+            }
+        });
+    </script>
 </body>
 </html>
 
