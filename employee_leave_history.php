@@ -35,11 +35,20 @@ $pending_leaves = mysqli_fetch_assoc($pending_leaves_query)['cnt'];
 <head>
     <link rel="icon" type="image/png" href="pic/logo_only.png">
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>WeRide - My Leave History</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
         body { display: flex; height: 100vh; background-color: #eef2f6; color: #334155; }
+
+        @media (max-width: 1024px) {
+            body { display: block !important; height: auto !important; min-height: 100vh !important; width: 100% !important; overflow-x: hidden !important; }
+            .main-content { width: 100% !important; max-width: 100vw !important; height: auto !important; overflow-y: visible !important; min-height: 100vh !important; padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important; }
+            .topbar { padding: 14px 16px !important; }
+            .content { padding: 12px 14px 40px 14px !important; }
+            .table-container { overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; width: 100% !important; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
+        }
 
         .sidebar { width: 260px; background-color: #fff; display: flex; flex-direction: column; box-shadow: 4px 0 24px rgba(0,0,0,0.02); z-index: 10; }
         .sidebar-header { padding: 30px 24px; font-size: 20px; font-weight: 800; color: #0f172a; }

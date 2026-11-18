@@ -794,6 +794,26 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <button type="submit" class="btn-submit">Update Password</button>
                 </form>
             </div>
+
+            <div class="profile-card" style="border: 1px solid rgba(239, 68, 68, 0.25); background: rgba(239, 68, 68, 0.03);">
+                <div class="card-title" style="color: #ef4444; display: flex; align-items: center; gap: 8px;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                    Account Session
+                </div>
+                <p style="font-size: 13px; color: #64748b; margin-bottom: 18px; line-height: 1.5;">Sign out of your WeRide account on this device. You will need to log back in next time.</p>
+                <a href="logout.php" style="display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 13px; background: #ef4444; color: white; border-radius: 10px; font-weight: 700; text-decoration: none; font-size: 14px; box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3); transition: 0.2s;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                    <span>Log Out of WeRide</span>
+                </a>
+            </div>
             
             </div> <!-- End of profile-grid -->
 

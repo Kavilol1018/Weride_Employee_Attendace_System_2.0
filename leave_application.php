@@ -223,7 +223,7 @@ if ($role_slug === 'employee') {
 <head>
     <link rel="icon" type="image/png" href="pic/logo_only.png">
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Leave Application - WeRide</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="assets/css/dark_mode.css">
@@ -233,6 +233,14 @@ if ($role_slug === 'employee') {
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
         body { display: flex; height: 100vh; background-color: #eef2f6; color: #334155; }
         .main-content { flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
+
+        @media (max-width: 1024px) {
+            body { display: block !important; height: auto !important; min-height: 100vh !important; width: 100% !important; overflow-x: hidden !important; }
+            .main-content { width: 100% !important; max-width: 100vw !important; height: auto !important; overflow-y: visible !important; min-height: 100vh !important; padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important; }
+            .topbar { padding: 14px 16px !important; }
+            .content { padding: 12px 14px 40px 14px !important; }
+            .table-container, .history-container { overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; width: 100% !important; }
+        }
         
         .topbar { padding: 25px 40px; display: flex; justify-content: space-between; align-items: center; }
         .page-title { font-size: 26px; font-weight: 700; color: #0f172a; }

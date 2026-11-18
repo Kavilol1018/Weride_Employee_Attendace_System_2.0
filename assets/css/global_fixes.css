@@ -287,11 +287,31 @@ body.mobile-mode .main-content {
         font-size: 20px !important;
     }
 
-    /* Modals should be full width with some margin */
-    .modal-box {
-        width: 92% !important;
-        padding: 20px !important;
-        margin: 20px auto;
+    /* Modals should be full width with some margin and smoothly scrollable */
+    .modal-overlay {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        background: rgba(15, 23, 42, 0.6) !important;
+        backdrop-filter: blur(4px) !important;
+        z-index: 999999 !important;
+        align-items: center !important;
+        justify-content: center !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        padding: 20px 10px !important;
+    }
+
+    .modal, .modal-box {
+        width: 95% !important;
+        max-width: 95% !important;
+        padding: 20px 16px !important;
+        margin: auto !important;
+        max-height: 86vh !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
     }
 
     /* Login container adjustments */

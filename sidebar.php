@@ -182,6 +182,8 @@ if (!function_exists('get_sidebar_notif_time')) {
             transform: translateX(0) !important;
             box-shadow: none !important;
             overflow-y: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+            padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px)) !important;
         }
 
         body.sidebar-open .sidebar {
@@ -210,6 +212,44 @@ if (!function_exists('get_sidebar_notif_time')) {
         .content {
             padding: 12px 14px 40px 14px !important;
         }
+
+        .sidebar .sidebar-logout-btn {
+            background: #ef4444 !important;
+            color: #ffffff !important;
+            border-color: #dc2626 !important;
+            font-weight: 700 !important;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35) !important;
+            margin-top: 12px !important;
+        }
+        .sidebar .sidebar-logout-btn svg {
+            stroke: #ffffff !important;
+        }
+
+        .mobile-topbar-logout {
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            width: 36px !important;
+            height: 36px !important;
+            border-radius: 50% !important;
+            background: #fee2e2 !important;
+            color: #ef4444 !important;
+            border: 1px solid #fecaca !important;
+            text-decoration: none !important;
+            flex-shrink: 0 !important;
+            margin-left: 6px !important;
+            cursor: pointer !important;
+            transition: 0.2s !important;
+        }
+        body.dark-mode .mobile-topbar-logout {
+            background: #450a0a !important;
+            color: #f87171 !important;
+            border-color: #7f1d1d !important;
+        }
+    }
+
+    .mobile-topbar-logout {
+        display: none;
     }
 
     /* Fallback for JS-flagged mobile mode regardless of screen resolution */
@@ -1112,15 +1152,15 @@ if (!function_exists('get_sidebar_notif_time')) {
             </span>
             <span class="mobile-nav-label">Home</span>
         </a>
-        <a href="employee_lunchtime_history.php" class="mobile-nav-link <?php echo strpos($current_page, 'lunchtime') !== false ? 'active' : ''; ?>">
+        <a href="weride_insides.php" class="mobile-nav-link <?php echo strpos($current_page, 'weride_insides') !== false ? 'active' : ''; ?>">
+            <span class="mobile-nav-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 20H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v1m2 13a2 2 0 0 1-2-2V7m2 13a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
+            </span>
+            <span class="mobile-nav-label">Feed</span>
+        </a>
+        <a href="employee_lunchtime_history.php" class="mobile-nav-link <?php echo (strpos($current_page, 'lunchtime') !== false || strpos($current_page, 'breaktime') !== false) ? 'active' : ''; ?>">
             <span class="mobile-nav-icon">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            </span>
-            <span class="mobile-nav-label">Lunch</span>
-        </a>
-        <a href="employee_breaktime_history.php" class="mobile-nav-link <?php echo strpos($current_page, 'breaktime') !== false ? 'active' : ''; ?>">
-            <span class="mobile-nav-icon">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
             </span>
             <span class="mobile-nav-label">Breaks</span>
         </a>
@@ -1130,11 +1170,11 @@ if (!function_exists('get_sidebar_notif_time')) {
             </span>
             <span class="mobile-nav-label">Attendance</span>
         </a>
-        <a href="profile.php" class="mobile-nav-link <?php echo strpos($current_page, 'profile') !== false ? 'active' : ''; ?>">
+        <a href="javascript:void(0)" onclick="toggleMobileSidebar()" class="mobile-nav-link <?php echo (strpos($current_page, 'profile') !== false || strpos($current_page, 'leave') !== false) ? 'active' : ''; ?>">
             <span class="mobile-nav-icon">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
             </span>
-            <span class="mobile-nav-label">Profile</span>
+            <span class="mobile-nav-label">Menu</span>
         </a>
     <?php elseif ($role_slug === 'gl' || $role_slug === 'tl'): ?>
         <a href="<?php echo $role_slug; ?>_dashboard.php" class="mobile-nav-link <?php echo strpos($current_page, 'dashboard') !== false ? 'active' : ''; ?>">
@@ -1142,6 +1182,12 @@ if (!function_exists('get_sidebar_notif_time')) {
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
             </span>
             <span class="mobile-nav-label">Home</span>
+        </a>
+        <a href="weride_insides.php" class="mobile-nav-link <?php echo strpos($current_page, 'weride_insides') !== false ? 'active' : ''; ?>">
+            <span class="mobile-nav-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 20H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v1m2 13a2 2 0 0 1-2-2V7m2 13a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
+            </span>
+            <span class="mobile-nav-label">Feed</span>
         </a>
         <a href="<?php echo $role_slug; ?>_live_attendance.php" class="mobile-nav-link <?php echo strpos($current_page, 'live_attendance') !== false ? 'active' : ''; ?>">
             <span class="mobile-nav-icon">
@@ -1155,11 +1201,11 @@ if (!function_exists('get_sidebar_notif_time')) {
             </span>
             <span class="mobile-nav-label">Team</span>
         </a>
-        <a href="profile.php" class="mobile-nav-link <?php echo strpos($current_page, 'profile') !== false ? 'active' : ''; ?>">
+        <a href="javascript:void(0)" onclick="toggleMobileSidebar()" class="mobile-nav-link <?php echo (strpos($current_page, 'profile') !== false || strpos($current_page, 'leave') !== false) ? 'active' : ''; ?>">
             <span class="mobile-nav-icon">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
             </span>
-            <span class="mobile-nav-label">Profile</span>
+            <span class="mobile-nav-label">Menu</span>
         </a>
     <?php else: /* Admin / HR */ ?>
         <a href="<?php echo $role_slug; ?>_dashboard.php" class="mobile-nav-link <?php echo strpos($current_page, 'dashboard') !== false ? 'active' : ''; ?>">
@@ -1167,6 +1213,12 @@ if (!function_exists('get_sidebar_notif_time')) {
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
             </span>
             <span class="mobile-nav-label">Home</span>
+        </a>
+        <a href="weride_insides.php" class="mobile-nav-link <?php echo strpos($current_page, 'weride_insides') !== false ? 'active' : ''; ?>">
+            <span class="mobile-nav-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 20H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v1m2 13a2 2 0 0 1-2-2V7m2 13a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
+            </span>
+            <span class="mobile-nav-label">Feed</span>
         </a>
         <a href="admin_attendance.php" class="mobile-nav-link <?php echo strpos($current_page, 'attendance') !== false ? 'active' : ''; ?>">
             <span class="mobile-nav-icon">
@@ -1180,11 +1232,11 @@ if (!function_exists('get_sidebar_notif_time')) {
             </span>
             <span class="mobile-nav-label">Staff</span>
         </a>
-        <a href="profile.php" class="mobile-nav-link <?php echo strpos($current_page, 'profile') !== false ? 'active' : ''; ?>">
+        <a href="javascript:void(0)" onclick="toggleMobileSidebar()" class="mobile-nav-link <?php echo (strpos($current_page, 'profile') !== false || strpos($current_page, 'leave') !== false) ? 'active' : ''; ?>">
             <span class="mobile-nav-icon">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
             </span>
-            <span class="mobile-nav-label">Profile</span>
+            <span class="mobile-nav-label">Menu</span>
         </a>
     <?php endif; ?>
 </nav>
@@ -1211,7 +1263,7 @@ if (!function_exists('get_sidebar_notif_time')) {
 
     function toggleDropdown(element) {
         // ── MOBILE: simple accordion ──────────────────────────────────────────
-        if (window.innerWidth <= 768) {
+        if (window.innerWidth <= 1024 || document.body.classList.contains('mobile-mode')) {
             element.classList.toggle('open');
             return;
         }
@@ -1301,6 +1353,17 @@ if (!function_exists('get_sidebar_notif_time')) {
                 toggleMobileSidebar();
             };
             topbar.insertBefore(btn, topbar.firstChild);
+        }
+
+        var topbarRight = document.querySelector('.topbar-right');
+        if (topbarRight && !topbarRight.querySelector('.mobile-topbar-logout')) {
+            var logoutLink = document.createElement('a');
+            logoutLink.href = 'logout.php';
+            logoutLink.className = 'mobile-topbar-logout';
+            logoutLink.setAttribute('title', 'Log Out');
+            logoutLink.setAttribute('aria-label', 'Log Out');
+            logoutLink.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>';
+            topbarRight.appendChild(logoutLink);
         }
 
         // Auto close mobile drawer when any link is tapped

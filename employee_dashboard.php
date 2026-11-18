@@ -484,8 +484,8 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
         .btn-leave:hover { background-color: #cbd5e1; }
         
         /* Modal Styles */
-        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
-        .modal { background: #fffcf0; border: 2px dashed #f59e0b; border-radius: 16px; padding: 30px; width: 90%; max-width: 400px; position: relative; text-align: center; }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 20px 10px; }
+        .modal { background: #fffcf0; border: 2px dashed #f59e0b; border-radius: 16px; padding: 30px; width: 90%; max-width: 400px; position: relative; text-align: center; max-height: 88vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
         .modal-close { position: absolute; top: 15px; right: 15px; font-size: 20px; font-weight: bold; color: #78350f; cursor: pointer; background: none; border: none; }
         .modal-title { color: #d97706; font-size: 20px; font-weight: 700; margin-bottom: 5px; }
         .modal-subtitle { color: #92400e; font-size: 13px; margin-bottom: 20px; line-height: 1.4; font-weight: 500; }
@@ -700,6 +700,27 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
                 padding: 12px !important;
                 font-size: 14px !important;
                 border-radius: 10px !important;
+            }
+
+            .modal-overlay {
+                overflow-y: auto !important;
+                -webkit-overflow-scrolling: touch !important;
+                padding: 15px 10px !important;
+            }
+
+            .modal {
+                width: 95% !important;
+                max-width: 95% !important;
+                max-height: 86vh !important;
+                overflow-y: auto !important;
+                -webkit-overflow-scrolling: touch !important;
+                padding: 20px 14px !important;
+                margin: auto !important;
+            }
+
+            #leaveModal .grid-2 {
+                grid-template-columns: 1fr !important;
+                gap: 12px !important;
             }
         }
 
@@ -1027,7 +1048,7 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
     
     <!-- Leave Modal -->
     <div class="modal-overlay" id="leaveModal">
-        <div class="modal" style="background-color: #fffdf4; border: 2px dashed #3b82f6; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); padding: 30px; position: relative; max-width: 700px;">
+        <div class="modal" style="background-color: #fffdf4; border: 2px dashed #3b82f6; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); padding: 30px; position: relative; max-width: 700px; max-height: 86vh; overflow-y: auto; -webkit-overflow-scrolling: touch;">
             <button onclick="document.getElementById('leaveModal').style.display='none'" style="position: absolute; top: 15px; right: 20px; background: none; border: none; font-size: 20px; color: #9a3412; cursor: pointer; font-weight: bold;">×</button>
             <h2 style="color: #3b82f6; font-size: 22px; font-weight: 700; text-align: center; margin-bottom: 8px;">Leave Application</h2>
             <div class="bg-amber-100" style="color: #9a3412; font-size: 13px; text-align: left; font-weight: 500; margin-bottom: 25px; line-height: 1.5;  padding: 12px; border-radius: 8px;">
