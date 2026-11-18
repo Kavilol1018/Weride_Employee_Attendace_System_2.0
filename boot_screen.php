@@ -200,23 +200,17 @@
         introScreen.addEventListener('touchstart', runZoomAndFadeOut, { once: true });
 
         if (isIos) {
-            // For iOS: Logo stays paused with "Tap to Enter" prompt waiting for user tap!
+            // ONLY for iOS: Logo stays paused with "Tap to Enter" prompt waiting for user tap!
             // When tapped anywhere, the sound plays at 100% fidelity without any browser restriction!
             const prompt = document.getElementById('weride-intro-prompt');
             if (prompt) prompt.style.display = 'inline-flex';
         } else {
-            // For non-iOS (Android, Desktop): Try autoplay and smooth auto zoom-fade into web
-            const p = audio.play();
-            if (p !== undefined) {
-                p.then(() => {
-                    setTimeout(runZoomAndFadeOut, 600);
-                }).catch(() => {
-                    const prompt = document.getElementById('weride-intro-prompt');
-                    if (prompt) prompt.style.display = 'inline-flex';
-                });
-            } else {
-                setTimeout(runZoomAndFadeOut, 600);
+            // For all non-iOS devices (Android, PC, Mac, Desktop):
+            // Prompt is NEVER shown. Plays audio automatically and zooms/fades into the web smoothly!
+            if (audio) {
+                audio.play().catch(() => {});
             }
+            setTimeout(runZoomAndFadeOut, 600);
         }
     }
 
