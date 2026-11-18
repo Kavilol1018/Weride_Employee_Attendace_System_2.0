@@ -247,7 +247,9 @@ $text_color_map = [
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <title>Attendance Grid - WeRide</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -404,6 +406,12 @@ $text_color_map = [
         .table-container::-webkit-scrollbar-thumb:hover,
         .top-scrollbar-wrapper::-webkit-scrollbar-thumb:hover {
             background: #94a3b8;
+        }
+        
+        @media (max-width: 1024px) {
+            .main-content {
+                padding-top: max(20px, calc(16px + env(safe-area-inset-top, 0px))) !important;
+            }
         }
         
     </style>

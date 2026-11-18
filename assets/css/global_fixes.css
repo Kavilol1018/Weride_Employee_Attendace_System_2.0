@@ -187,7 +187,9 @@ body.mobile-mode .ci-topbar {
     }
 
     .topbar {
-        padding: 20px 24px !important;
+        padding-left: 24px !important;
+        padding-right: 24px !important;
+        padding-bottom: 20px !important;
     }
 }
 
@@ -289,7 +291,9 @@ body.mobile-mode .ci-topbar {
 
     /* Topbar */
     .topbar {
-        padding: 15px 16px !important;
+        padding-left: 16px !important;
+        padding-right: 16px !important;
+        padding-bottom: 15px !important;
         flex-direction: row;
         align-items: center;
         gap: 10px;
@@ -512,7 +516,9 @@ body.mobile-mode .ci-topbar {
     }
 
     .topbar {
-        padding: 12px 8px !important;
+        padding-left: 10px !important;
+        padding-right: 10px !important;
+        padding-bottom: 12px !important;
     }
 
     .page-title {
@@ -663,3 +669,19 @@ body.dark-mode .top-scrollbar-wrapper::-webkit-scrollbar-thumb:hover {
     border-radius: 50% !important;
     display: block !important;
 }
+
+/* ==========================================================================
+   IOS NOTCH, DYNAMIC ISLAND & STATUS BAR PROTECTION (HIGHEST SPECIFICITY)
+   Ensures safe-area-inset-top is never overwritten by any other rule.
+   ========================================================================== */
+@media (max-width: 1024px) {
+    .topbar, 
+    .ci-topbar, 
+    header.topbar, 
+    .main-content > .header, 
+    .main-content > .page-header {
+        padding-top: max(20px, calc(16px + env(safe-area-inset-top, 0px))) !important;
+        box-sizing: border-box !important;
+    }
+}
+

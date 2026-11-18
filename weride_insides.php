@@ -517,7 +517,9 @@ $user_initials = get_initials($current_user_name);
 <head>
     <link rel="icon" type="image/png" href="pic/logo_only.png">
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <title>WeRide Insides - Company Community</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -911,7 +913,7 @@ $user_initials = get_initials($current_user_name);
 
         @media (max-width: 1024px) {
             .ci-topbar {
-                padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 14px 16px !important;
+                padding: max(20px, calc(16px + env(safe-area-inset-top, 0px))) 16px 14px 16px !important;
                 box-sizing: border-box !important;
             }
             .ci-topbar h1 {
