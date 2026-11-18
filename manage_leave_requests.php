@@ -655,11 +655,11 @@ if ($emp_dropdown_res) {
                     <!-- Row 3: Start Date & End Date -->
                     <div>
                         <label class="text-slate-900" style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px;"><span class="text-red-500">*</span> Date of Leave (Start)</label>
-                        <input type="text" name="start_date" id="modal_start_date" placeholder="Select Date" required style="width: 100%; padding: 10px 15px; border: 1px solid #fbbf24; border-radius: 8px; font-size: 14px; outline: none; background: white; color: #334155;">
+                        <input type="text" name="start_date" id="modal_start_date" placeholder="Select Date" required readonly style="width: 100%; padding: 10px 15px; border: 1px solid #fbbf24; border-radius: 8px; font-size: 14px; outline: none; background: white; color: #334155; cursor: pointer;">
                     </div>
                     <div id="modal_end_date_group">
                         <label class="text-slate-900" style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px;"><span class="text-red-500">*</span> Date of Leave (End)</label>
-                        <input type="text" name="end_date" id="modal_end_date" placeholder="Select Date" required style="width: 100%; padding: 10px 15px; border: 1px solid #fbbf24; border-radius: 8px; font-size: 14px; outline: none; background: white; color: #334155;">
+                        <input type="text" name="end_date" id="modal_end_date" placeholder="Select Date" required readonly style="width: 100%; padding: 10px 15px; border: 1px solid #fbbf24; border-radius: 8px; font-size: 14px; outline: none; background: white; color: #334155; cursor: pointer;">
                     </div>
 
                     <!-- Row 3.5: Start Time & End Time -->
@@ -829,8 +829,10 @@ if ($emp_dropdown_res) {
                 return;
             }
 
-            let startDate = new Date(start);
-            let endDate = new Date(end);
+            let [sy, sm, sd] = start.split('-').map(Number);
+            let startDate = new Date(sy, sm - 1, sd);
+            let [ey, em, ed] = end.split('-').map(Number);
+            let endDate = new Date(ey, em - 1, ed);
             
             if (endDate < startDate) {
                 durationInput.value = '';
@@ -863,6 +865,7 @@ if ($emp_dropdown_res) {
 
         const fpConfig = {
             dateFormat: "Y-m-d",
+            disableMobile: true,
             disable: [
                 function(date) {
                     // Disable Saturday (6) and Sunday (0)
@@ -881,8 +884,8 @@ if ($emp_dropdown_res) {
             }
         };
 
-        flatpickr("#modal_start_date", fpConfig);
-        flatpickr("#modal_end_date", fpConfig);
+        window.fpStart = flatpickr("#modal_start_date", fpConfig);
+        window.fpEnd = flatpickr("#modal_end_date", fpConfig);
         </script>
         
         <!-- Reject Leave Modal -->

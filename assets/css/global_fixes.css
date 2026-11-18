@@ -55,6 +55,27 @@ button, .btn, a, summary {
     touch-action: manipulation;
 }
 
+/* 8. Flatpickr Calendar Top-Level Stacking & Mobile Fixes */
+.flatpickr-calendar,
+.flatpickr-calendar.open,
+.flatpickr-calendar.animate.open {
+    z-index: 10000000 !important;
+}
+
+.flatpickr-wrapper {
+    display: block !important;
+    width: 100% !important;
+}
+
+@media (max-width: 640px) {
+    .flatpickr-calendar {
+        max-width: calc(100vw - 24px) !important;
+        margin: 0 auto !important;
+        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45) !important;
+        border-radius: 16px !important;
+    }
+}
+
 /* ==========================================================================
    MOBILE RESPONSIVENESS OVERRIDES & SMART CSS GRID
    ========================================================================== */
@@ -336,6 +357,12 @@ body.mobile-mode .ci-topbar {
         overflow-y: auto !important;
         -webkit-overflow-scrolling: touch !important;
         padding: 20px 10px !important;
+    }
+
+    .flatpickr-calendar,
+    .flatpickr-calendar.open,
+    .flatpickr-calendar.animate.open {
+        z-index: 10000000 !important;
     }
 
     .modal, .modal-box {

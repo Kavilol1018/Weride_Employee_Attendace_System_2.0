@@ -960,11 +960,11 @@ $vio_data_values = array_values($vio_data);
                     <!-- Row 3: Start Date & End Date -->
                     <div>
                         <label class="text-slate-900" style="display: block; font-size: 13px; font-weight: 700;  margin-bottom: 6px;"><span class="text-red-500" >*</span> Date of Leave (Start)</label>
-                        <input type="text" name="start_date" id="modal_start_date" placeholder="Select Date" required style="width: 100%; padding: 10px 15px; border: 1px solid #fbbf24; border-radius: 8px; font-size: 14px; outline: none; background: white; color: #334155;">
+                        <input type="text" name="start_date" id="modal_start_date" placeholder="Select Date" required readonly style="width: 100%; padding: 10px 15px; border: 1px solid #fbbf24; border-radius: 8px; font-size: 14px; outline: none; background: white; color: #334155; cursor: pointer;">
                     </div>
                     <div id="modal_end_date_group">
                         <label class="text-slate-900" style="display: block; font-size: 13px; font-weight: 700;  margin-bottom: 6px;"><span class="text-red-500" >*</span> Date of Leave (End)</label>
-                        <input type="text" name="end_date" id="modal_end_date" placeholder="Select Date" required style="width: 100%; padding: 10px 15px; border: 1px solid #fbbf24; border-radius: 8px; font-size: 14px; outline: none; background: white; color: #334155;">
+                        <input type="text" name="end_date" id="modal_end_date" placeholder="Select Date" required readonly style="width: 100%; padding: 10px 15px; border: 1px solid #fbbf24; border-radius: 8px; font-size: 14px; outline: none; background: white; color: #334155; cursor: pointer;">
                     </div>
 
                     <!-- Row 3.5: Start Time & End Time -->
@@ -1002,6 +1002,10 @@ $vio_data_values = array_values($vio_data);
     <!-- Flatpickr JS -->
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
+        // Global Flatpickr instances
+        window.fpStart = null;
+        window.fpEnd = null;
+
         // Inject PHP variables into JS for dynamic time calculations
         const shiftStart = '<?php $parts = explode("-", $shift_hour); echo trim($parts[0] ?? "09:00"); ?>';
         const shiftEnd = '<?php $parts = explode("-", $shift_hour); echo trim($parts[1] ?? "18:00"); ?>';
@@ -1037,24 +1041,26 @@ $vio_data_values = array_values($vio_data);
                 if (startDateInput) startDateInput.min = minDateStr;
                 if (endInput) endInput.min = minDateStr;
                 // Update Flatpickr minDate
-                if (typeof fpStart !== 'undefined') fpStart.set('minDate', minDateStr);
-                if (typeof fpEnd !== 'undefined') fpEnd.set('minDate', minDateStr);
+                if (window.fpStart) window.fpStart.set('minDate', minDateStr);
+                if (window.fpEnd) window.fpEnd.set('minDate', minDateStr);
             } else if (type === 'Emergency Leave') {
                 durationInput.max = alBal;
                 if (startDateInput) startDateInput.removeAttribute('min');
                 if (endInput) endInput.removeAttribute('min');
-                if (typeof fpStart !== 'undefined') fpStart.set('minDate', null);
-                if (typeof fpEnd !== 'undefined') fpEnd.set('minDate', null);
+                if (window.fpStart) window.fpStart.set('minDate', null);
+                if (window.fpEnd) window.fpEnd.set('minDate', null);
             } else if (type === 'Sick Leave') {
                 durationInput.max = slBal;
                 if (startDateInput) startDateInput.removeAttribute('min');
                 if (endInput) endInput.removeAttribute('min');
-                if (typeof fpStart !== 'undefined') fpStart.set('minDate', null);
-                if (typeof fpEnd !== 'undefined') fpEnd.set('minDate', null);
+                if (window.fpStart) window.fpStart.set('minDate', null);
+                if (window.fpEnd) window.fpEnd.set('minDate', null);
             } else {
                 durationInput.removeAttribute('max');
                 if (startDateInput) startDateInput.removeAttribute('min');
                 if (endInput) endInput.removeAttribute('min');
+                if (window.fpStart) window.fpStart.set('minDate', null);
+                if (window.fpEnd) window.fpEnd.set('minDate', null);
             }
 
             // Automate Time and Duration
@@ -1191,8 +1197,10 @@ $vio_data_values = array_values($vio_data);
                 return;
             }
 
-            let startDate = new Date(start);
-            let endDate = new Date(end);
+            let [sy, sm, sd] = start.split('-').map(Number);
+            let startDate = new Date(sy, sm - 1, sd);
+            let [ey, em, ed] = end.split('-').map(Number);
+            let endDate = new Date(ey, em - 1, ed);
             
             if (endDate < startDate) {
                 durationInput.value = '';
@@ -1218,6 +1226,7 @@ $vio_data_values = array_values($vio_data);
 
         const fpConfig = {
             dateFormat: "Y-m-d",
+            disableMobile: true,
             disable: [
                 function(date) {
                     // Disable Saturday (6) and Sunday (0)
@@ -1236,8 +1245,8 @@ $vio_data_values = array_values($vio_data);
             }
         };
 
-        const fpStart = flatpickr("#modal_start_date", fpConfig);
-        const fpEnd = flatpickr("#modal_end_date", fpConfig);
+        window.fpStart = flatpickr("#modal_start_date", fpConfig);
+        window.fpEnd = flatpickr("#modal_end_date", fpConfig);
 
 
         if (!sessionStorage.getItem('friday_reminded') && document.getElementById('friday-reminder')) {
