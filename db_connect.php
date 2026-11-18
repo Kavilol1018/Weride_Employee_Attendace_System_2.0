@@ -29,8 +29,25 @@ mysqli_query($conn, "SET time_zone = '+08:00'");
 // Auto Schema Migration Setup
 include_once __DIR__ . '/db_setup.php';
 
+// Ensure session is active with 30-day lifetime
+if (session_status() === PHP_SESSION_NONE) {
+    $cookie_lifetime = 60 * 60 * 24 * 30; // 30 days
+    ini_set('session.gc_maxlifetime', $cookie_lifetime);
+    if (!headers_sent()) {
+        session_set_cookie_params([
+            'lifetime' => $cookie_lifetime,
+            'path' => '/',
+            'domain' => '',
+            'secure' => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on',
+            'httponly' => true,
+            'samesite' => 'Lax'
+        ]);
+    }
+    session_start();
+}
+
 // Check for Persistent "Stay Logged In" Cookie if session is empty
-if (session_status() === PHP_SESSION_ACTIVE && empty($_SESSION['user_id']) && !empty($_COOKIE['weride_remember'])) {
+if (empty($_SESSION['user_id']) && !empty($_COOKIE['weride_remember'])) {
     $cookie_parts = explode(':', $_COOKIE['weride_remember']);
     if (count($cookie_parts) === 2) {
         $selector = mysqli_real_escape_string($conn, $cookie_parts[0]);

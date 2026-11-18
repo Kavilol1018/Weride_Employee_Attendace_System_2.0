@@ -1,10 +1,9 @@
 <?php
-session_start();
+include_once __DIR__ . '/db_connect.php';
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'hr') {
     header("Location: index.php");
     exit();
 }
-include 'db_connect.php';
 
 // --- DASHBOARD FILTERS ---
 $filter_date = isset($_GET['filter_date']) ? mysqli_real_escape_string($conn, $_GET['filter_date']) : date('Y-m-d');

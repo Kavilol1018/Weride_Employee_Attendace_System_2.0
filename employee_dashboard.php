@@ -1,10 +1,9 @@
 <?php
-session_start();
+include_once __DIR__ . '/db_connect.php';
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['employee', 'qa'])) {
     header("Location: index.php");
     exit();
 }
-include 'db_connect.php';
 /** @var mysqli $conn */
 
 $current_employee_id = $_SESSION['emp_id']; 
