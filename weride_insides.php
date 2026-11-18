@@ -1445,15 +1445,16 @@ $user_initials = get_initials($current_user_name);
             left: 0;
             right: 0;
             bottom: 0;
-            z-index: 99999;
-            background: rgba(8, 14, 23, 0.92);
-            backdrop-filter: blur(14px);
-            -webkit-backdrop-filter: blur(14px);
+            z-index: 999999;
+            background: rgba(8, 14, 23, 0.95);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             display: flex;
             flex-direction: column;
             opacity: 0;
             transition: opacity 0.2s ease;
-            cursor: zoom-out;
+            cursor: pointer;
+            box-sizing: border-box;
         }
 
         .ci-lightbox.active {
@@ -1464,31 +1465,39 @@ $user_initials = get_initials($current_user_name);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 16px 24px;
-            background: linear-gradient(180deg, rgba(0, 0, 0, 0.6) 0%, transparent 100%);
-            z-index: 2;
+            padding: max(22px, calc(16px + env(safe-area-inset-top, 0px))) 20px 14px 20px;
+            background: linear-gradient(180deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.4) 70%, transparent 100%);
+            z-index: 10;
             cursor: default;
+            box-sizing: border-box;
+            width: 100%;
         }
 
         .ci-lightbox-info {
             color: #ffffff;
             font-size: 14px;
-            font-weight: 600;
+            font-weight: 700;
             letter-spacing: 0.2px;
+            padding-right: 12px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.8);
         }
 
         .ci-lightbox-tools {
             display: flex;
             align-items: center;
             gap: 12px;
+            flex-shrink: 0;
         }
 
         .ci-lightbox-btn {
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
-            background: rgba(255, 255, 255, 0.12);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.18);
+            border: 1px solid rgba(255, 255, 255, 0.3);
             color: #ffffff;
             display: flex;
             align-items: center;
@@ -1496,11 +1505,25 @@ $user_initials = get_initials($current_user_name);
             cursor: pointer;
             text-decoration: none;
             transition: all 0.15s ease;
+            -webkit-tap-highlight-color: transparent;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
         }
 
-        .ci-lightbox-btn:hover {
-            background: rgba(255, 255, 255, 0.25);
-            transform: scale(1.05);
+        .ci-lightbox-btn:hover,
+        .ci-lightbox-btn:active {
+            background: rgba(255, 255, 255, 0.32);
+            transform: scale(1.06);
+        }
+
+        .ci-lightbox-close {
+            background: rgba(239, 68, 68, 0.45) !important;
+            border-color: rgba(239, 68, 68, 0.7) !important;
+        }
+
+        .ci-lightbox-close:hover,
+        .ci-lightbox-close:active {
+            background: #ef4444 !important;
+            transform: scale(1.08);
         }
 
         .ci-lightbox-content {
@@ -1508,17 +1531,30 @@ $user_initials = get_initials($current_user_name);
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 16px 24px 32px;
-            cursor: default;
+            padding: 10px 16px;
+            cursor: pointer;
+            box-sizing: border-box;
+            position: relative;
         }
 
         .ci-lightbox-content img {
             max-width: 94vw;
-            max-height: 86vh;
+            max-height: 75vh;
             object-fit: contain;
-            border-radius: 10px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-            cursor: auto;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+            cursor: default;
+        }
+
+        .ci-lightbox-hint {
+            padding-bottom: max(22px, calc(16px + env(safe-area-inset-bottom, 0px)));
+            text-align: center;
+            color: rgba(255, 255, 255, 0.65);
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            cursor: pointer;
+            user-select: none;
         }
 
         /* Post Action Row */
@@ -2046,19 +2082,22 @@ $user_initials = get_initials($current_user_name);
 
     <!-- FULLSCREEN IMAGE LIGHTBOX -->
     <div id="ci-lightbox" class="ci-lightbox" style="display: none;" onclick="closeLightbox(event)">
-        <div class="ci-lightbox-bar">
+        <div class="ci-lightbox-bar" onclick="event.stopPropagation()">
             <div class="ci-lightbox-info" id="lightbox-info">Photo View</div>
             <div class="ci-lightbox-tools">
                 <a id="lightbox-download" href="#" download class="ci-lightbox-btn" title="Download Image" target="_blank" onclick="event.stopPropagation()">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                 </a>
-                <button type="button" class="ci-lightbox-btn" onclick="closeLightbox()" title="Close (Esc)">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                <button type="button" class="ci-lightbox-btn ci-lightbox-close" onclick="closeLightbox()" title="Close" aria-label="Close">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 </button>
             </div>
         </div>
-        <div class="ci-lightbox-content" onclick="event.stopPropagation()">
-            <img id="lightbox-img" src="" alt="Full view" />
+        <div class="ci-lightbox-content" onclick="closeLightbox(event)">
+            <img id="lightbox-img" src="" alt="Full view" onclick="event.stopPropagation()" />
+        </div>
+        <div class="ci-lightbox-hint" onclick="closeLightbox(event)">
+            <span>Tap anywhere to close &times;</span>
         </div>
     </div>
 
@@ -2600,7 +2639,7 @@ $user_initials = get_initials($current_user_name);
         }
 
         function closeLightbox(e) {
-            if (e && e.target && (e.target.id === 'lightbox-img' || e.target.closest('.ci-lightbox-tools'))) return;
+            if (e && e.target && (e.target.id === 'lightbox-img' || e.target.closest('#lightbox-download'))) return;
             const lb = document.getElementById('ci-lightbox');
             if (!lb) return;
 
@@ -2610,7 +2649,7 @@ $user_initials = get_initials($current_user_name);
                 lb.style.display = 'none';
                 const img = document.getElementById('lightbox-img');
                 if (img) img.src = '';
-            }, 200);
+            }, 180);
         }
 
         document.addEventListener('keydown', (e) => {
