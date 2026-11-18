@@ -556,10 +556,11 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
             }
 
             .topbar {
-                padding: 12px 16px !important;
+                padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 12px 16px !important;
                 flex-wrap: wrap !important;
                 gap: 10px !important;
                 border-bottom: 1px solid #e2e8f0;
+                box-sizing: border-box !important;
             }
 
             body.dark-mode .topbar {

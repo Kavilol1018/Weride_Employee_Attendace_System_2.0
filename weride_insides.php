@@ -910,6 +910,13 @@ $user_initials = get_initials($current_user_name);
         }
 
         @media (max-width: 1024px) {
+            .ci-topbar {
+                padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 14px 16px !important;
+                box-sizing: border-box !important;
+            }
+            .ci-topbar h1 {
+                font-size: 20px !important;
+            }
             .ci-grid {
                 grid-template-columns: 1fr;
             }

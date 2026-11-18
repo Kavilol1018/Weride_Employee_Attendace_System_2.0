@@ -198,10 +198,11 @@ if (!function_exists('get_sidebar_notif_time')) {
         }
 
         .topbar {
-            padding: 12px 16px !important;
+            padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 12px 16px !important;
             justify-content: space-between !important;
             align-items: center !important;
             width: 100% !important;
+            box-sizing: border-box !important;
         }
 
         .topbar .page-title {
@@ -301,10 +302,11 @@ if (!function_exists('get_sidebar_notif_time')) {
         z-index: 99998 !important;
     }
     body.mobile-mode .topbar {
-        padding: 12px 16px !important;
+        padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 12px 16px !important;
         justify-content: space-between !important;
         align-items: center !important;
         width: 100% !important;
+        box-sizing: border-box !important;
     }
     body.mobile-mode .content {
         padding: 12px 14px 40px 14px !important;
