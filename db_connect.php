@@ -26,15 +26,44 @@ mysqli_query($conn, "SET time_zone = '+08:00'");
 
 
 
+// Auto Schema Migration Setup
+include_once __DIR__ . '/db_setup.php';
+
+// Check for Persistent "Stay Logged In" Cookie if session is empty
+if (session_status() === PHP_SESSION_ACTIVE && empty($_SESSION['user_id']) && !empty($_COOKIE['weride_remember'])) {
+    $cookie_parts = explode(':', $_COOKIE['weride_remember']);
+    if (count($cookie_parts) === 2) {
+        $selector = mysqli_real_escape_string($conn, $cookie_parts[0]);
+        $validator = $cookie_parts[1];
+        
+        $token_query = mysqli_query($conn, "SELECT id, emp_id, token_hash, expires_at FROM remember_tokens WHERE selector = '$selector' AND expires_at > NOW() LIMIT 1");
+        if ($token_query && mysqli_num_rows($token_query) > 0) {
+            $token_row = mysqli_fetch_assoc($token_query);
+            if (hash_equals($token_row['token_hash'], hash('sha256', $validator))) {
+                // Token matches! Auto-login the employee
+                $saved_emp_id = mysqli_real_escape_string($conn, $token_row['emp_id']);
+                $emp_query = mysqli_query($conn, "SELECT id, emp_id, name, role, profile_picture FROM employees WHERE emp_id = '$saved_emp_id' LIMIT 1");
+                if ($emp_query && $emp_row = mysqli_fetch_assoc($emp_query)) {
+                    $_SESSION['user_id'] = $emp_row['id'];
+                    $_SESSION['emp_id'] = $emp_row['emp_id'];
+                    $_SESSION['name'] = $emp_row['name'];
+                    $_SESSION['role'] = $emp_row['role'];
+                    $_SESSION['profile_picture'] = $emp_row['profile_picture'] ?? null;
+                    if (empty($_SESSION['csrf_token'])) {
+                        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+                    }
+                }
+            }
+        }
+    }
+}
+
 $role_slug = isset($_SESSION['role']) ? $_SESSION['role'] : 'employee';
 
 // CSRF Token Generation
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
-
-// Auto Schema Migration Setup
-include_once __DIR__ . '/db_setup.php';
 
 function check_leave_capacity(mysqli $conn, string $start_date, string $end_date, string $emp_id, string $leave_type = 'Annual Leave') {
     // Capacity limit of 5 only applies to Annual Leave

@@ -85,6 +85,21 @@ $sql_push = "CREATE TABLE IF NOT EXISTS `push_subscriptions` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;";
 mysqli_query($conn, $sql_push);
 
+// 3.66 Create remember_tokens table for persistent mobile/desktop login
+$sql_tokens = "CREATE TABLE IF NOT EXISTS `remember_tokens` (
+    `id` INT(11) NOT NULL AUTO_INCREMENT,
+    `emp_id` VARCHAR(50) NOT NULL,
+    `selector` VARCHAR(32) NOT NULL,
+    `token_hash` VARCHAR(64) NOT NULL,
+    `expires_at` DATETIME NOT NULL,
+    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `unique_selector` (`selector`),
+    INDEX `idx_emp` (`emp_id`),
+    INDEX `idx_expires` (`expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;";
+mysqli_query($conn, $sql_tokens);
+
 // 3.7 Create WeRide Insides (Community Feed) tables if missing
 $sql_c_posts = "CREATE TABLE IF NOT EXISTS `community_posts` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,

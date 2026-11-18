@@ -1,6 +1,39 @@
 <?php
-session_start();
+$cookie_lifetime = 60 * 60 * 24 * 30; // 30 days
+ini_set('session.gc_maxlifetime', $cookie_lifetime);
+if (session_status() === PHP_SESSION_NONE) {
+    session_set_cookie_params([
+        'lifetime' => $cookie_lifetime,
+        'path' => '/',
+        'domain' => '',
+        'secure' => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on',
+        'httponly' => true,
+        'samesite' => 'Lax'
+    ]);
+    session_start();
+}
 include 'db_connect.php';
+
+// Auto-redirect if already logged in (e.g. launching PWA or reopening app)
+if (isset($_SESSION['user_id']) && !empty($_SESSION['role'])) {
+    switch ($_SESSION['role']) {
+        case 'admin':
+            header("Location: admin_dashboard.php");
+            exit();
+        case 'hr':
+            header("Location: hr_dashboard.php");
+            exit();
+        case 'tl':
+            header("Location: tl_dashboard.php");
+            exit();
+        case 'gl':
+            header("Location: gl_dashboard.php");
+            exit();
+        default:
+            header("Location: employee_dashboard.php");
+            exit();
+    }
+}
 
 $error = isset($_GET['error']) ? htmlspecialchars($_GET['error']) : "";
 $msg = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
@@ -34,6 +67,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $_SESSION['name'] = $row['name'];
                 $_SESSION['role'] = $row['role'];
                 $_SESSION['profile_picture'] = $row['profile_picture'] ?? null;
+
+                // Create 30-Day Persistent Remember Token for Seamless Re-entry
+                $selector = bin2hex(random_bytes(16));
+                $validator = bin2hex(random_bytes(32));
+                $token_hash = hash('sha256', $validator);
+                $expires_at = date('Y-m-d H:i:s', time() + (86400 * 30));
+                
+                $escaped_emp = mysqli_real_escape_string($conn, $row['emp_id']);
+                mysqli_query($conn, "INSERT INTO remember_tokens (emp_id, selector, token_hash, expires_at) VALUES ('$escaped_emp', '$selector', '$token_hash', '$expires_at')");
+                
+                setcookie('weride_remember', $selector . ':' . $validator, [
+                    'expires' => time() + (86400 * 30),
+                    'path' => '/',
+                    'domain' => '',
+                    'secure' => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on',
+                    'httponly' => true,
+                    'samesite' => 'Lax'
+                ]);
 
                 // Redirect based on role
                 switch ($row['role']) {

@@ -160,6 +160,12 @@ function send_mention_notifications($conn, $content, $emp_map, $sender_id, $send
                 mysqli_stmt_bind_param($stmt, "ss", $target_id, $msg);
                 mysqli_stmt_execute($stmt);
             }
+
+            // Direct Push Notification with Company Logo
+            if (file_exists(__DIR__ . '/vapid_config.php')) {
+                require_once __DIR__ . '/vapid_config.php';
+                WebPushSender::sendToEmployee($conn, $target_id, "WeRide Insides", $msg, "weride_insides.php", "feed-mention-" . time());
+            }
         }
     }
 }
@@ -272,6 +278,26 @@ if ($action) {
         if (mysqli_stmt_execute($stmt)) {
             // Send notifications to any mentioned users
             send_mention_notifications($conn, $content, $mention_map, $current_emp_id, $current_user_name, 'post');
+
+            // Broadcast push notification to all other employees
+            if (file_exists(__DIR__ . '/vapid_config.php')) {
+                require_once __DIR__ . '/vapid_config.php';
+                $snippet = mb_substr(strip_tags($content), 0, 70);
+                if (mb_strlen(strip_tags($content)) > 70) $snippet .= '...';
+                $push_body = !empty($snippet) ? "$current_user_name: \"$snippet\"" : "$current_user_name shared a photo/video update.";
+
+                $other_subs_q = mysqli_query($conn, "SELECT DISTINCT emp_id FROM push_subscriptions WHERE emp_id != '" . mysqli_real_escape_string($conn, $current_emp_id) . "'");
+                if ($other_subs_q && mysqli_num_rows($other_subs_q) > 0) {
+                    $target_ids = [];
+                    while ($sub_row = mysqli_fetch_assoc($other_subs_q)) {
+                        $target_ids[] = $sub_row['emp_id'];
+                    }
+                    if (!empty($target_ids)) {
+                        WebPushSender::sendToEmployee($conn, $target_ids, "WeRide Insides", $push_body, "weride_insides.php", "feed-post-" . time());
+                    }
+                }
+            }
+
             echo json_encode(['success' => true]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Database error creating post.']);
@@ -295,6 +321,24 @@ if ($action) {
         } else {
             mysqli_query($conn, "INSERT INTO community_likes (post_id, emp_id) VALUES ($post_id, '" . mysqli_real_escape_string($conn, $current_emp_id) . "')");
             $liked = true;
+
+            // Notify post author if not self
+            $p_author_res = mysqli_query($conn, "SELECT emp_id FROM community_posts WHERE id = $post_id LIMIT 1");
+            if ($p_author_res && ($p_row = mysqli_fetch_assoc($p_author_res))) {
+                $post_author = $p_row['emp_id'];
+                if ($post_author !== $current_emp_id) {
+                    $like_msg = "$current_user_name liked your post in WeRide Insides.";
+                    $n_stmt = mysqli_prepare($conn, "INSERT INTO employee_notifications (emp_id, message, is_read, created_at) VALUES (?, ?, 0, NOW())");
+                    if ($n_stmt) {
+                        mysqli_stmt_bind_param($n_stmt, "ss", $post_author, $like_msg);
+                        mysqli_stmt_execute($n_stmt);
+                    }
+                    if (file_exists(__DIR__ . '/vapid_config.php')) {
+                        require_once __DIR__ . '/vapid_config.php';
+                        WebPushSender::sendToEmployee($conn, $post_author, "WeRide Insides", $like_msg, "weride_insides.php", "feed-like-" . $post_id);
+                    }
+                }
+            }
         }
 
         $count_res = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM community_likes WHERE post_id = $post_id"));
@@ -322,6 +366,27 @@ if ($action) {
             $new_id = mysqli_insert_id($conn);
             // Send notifications to mentioned users
             send_mention_notifications($conn, $comment, $mention_map, $current_emp_id, $current_user_name, 'comment');
+
+            // Notify post author if not commenting on own post
+            $p_author_res = mysqli_query($conn, "SELECT emp_id FROM community_posts WHERE id = $post_id LIMIT 1");
+            if ($p_author_res && ($p_row = mysqli_fetch_assoc($p_author_res))) {
+                $post_author = $p_row['emp_id'];
+                if ($post_author !== $current_emp_id) {
+                    $comm_snippet = mb_substr(strip_tags($comment), 0, 75);
+                    if (mb_strlen(strip_tags($comment)) > 75) $comm_snippet .= '...';
+                    $comment_msg = "$current_user_name commented on your post: \"$comm_snippet\"";
+                    $n_stmt = mysqli_prepare($conn, "INSERT INTO employee_notifications (emp_id, message, is_read, created_at) VALUES (?, ?, 0, NOW())");
+                    if ($n_stmt) {
+                        mysqli_stmt_bind_param($n_stmt, "ss", $post_author, $comment_msg);
+                        mysqli_stmt_execute($n_stmt);
+                    }
+                    if (file_exists(__DIR__ . '/vapid_config.php')) {
+                        require_once __DIR__ . '/vapid_config.php';
+                        WebPushSender::sendToEmployee($conn, $post_author, "WeRide Insides", $comment_msg, "weride_insides.php", "feed-comment-" . time());
+                    }
+                }
+            }
+
             $count_res = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM community_comments WHERE post_id = $post_id"));
             echo json_encode([
                 'success' => true,
