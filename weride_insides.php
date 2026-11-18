@@ -1777,7 +1777,7 @@ $user_initials = get_initials($current_user_name);
                         </div>
                     </div>
 
-                    <!-- PUSH NOTIFICATION PROMPT / TEST CARD -->
+                    <!-- PUSH NOTIFICATION PROMPT -->
                     <div id="feed-push-prompt" style="display:none; background: linear-gradient(135deg, rgba(0, 166, 214, 0.12), rgba(50, 213, 232, 0.05)); border: 1px solid rgba(0, 166, 214, 0.35); border-radius: 14px; padding: 14px 18px; margin-bottom: 20px; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;">
                         <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 240px;">
                             <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(0, 166, 214, 0.18); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0;">
@@ -1793,16 +1793,6 @@ $user_initials = get_initials($current_user_name);
                                 <span>Turn On Notifications</span>
                             </button>
                         </div>
-                    </div>
-
-                    <!-- PUSH NOTIFICATIONS ACTIVE STATUS -->
-                    <div id="feed-push-active" style="display:none; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 12px; padding: 10px 16px; margin-bottom: 20px; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
-                        <div style="display:flex; align-items:center; gap:8px; font-size:13px; color:#10b981; font-weight:600;">
-                            <span>✓</span> Push notifications are active on this device
-                        </div>
-                        <button type="button" onclick="sendTestPushToSelf(this)" style="background: transparent; border: 1px solid #10b981; color: #10b981; padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer;">
-                            Send Test Notification
-                        </button>
                     </div>
 
                     <!-- POST COMPOSER -->
@@ -2653,19 +2643,15 @@ $user_initials = get_initials($current_user_name);
         // ====================================================================
         function checkPushUIState() {
             const promptBox = document.getElementById('feed-push-prompt');
-            const activeBox = document.getElementById('feed-push-active');
             if (!('Notification' in window) || !('serviceWorker' in navigator)) {
                 if (promptBox) promptBox.style.display = 'none';
-                if (activeBox) activeBox.style.display = 'none';
                 return;
             }
 
             if (Notification.permission === 'granted') {
                 if (promptBox) promptBox.style.display = 'none';
-                if (activeBox) activeBox.style.display = 'flex';
             } else {
                 if (promptBox) promptBox.style.display = 'flex';
-                if (activeBox) activeBox.style.display = 'none';
             }
         }
 
@@ -2687,14 +2673,7 @@ $user_initials = get_initials($current_user_name);
                 const ok = await window.subscribeWeRidePush(true);
                 if (ok) {
                     checkPushUIState();
-                    // Send instant test notification so user sees company logo immediately
-                    try {
-                        const r = await fetch('api/send_test_push.php');
-                        const data = await r.json();
-                        alert("✅ Push notifications enabled! A test notification with the company logo has been sent to your phone.");
-                    } catch (e) {
-                        alert("✅ Push notifications enabled!");
-                    }
+                    alert("✅ Mobile push notifications are active! You will now receive instant alerts on your phone.");
                 } else {
                     alert("Notification permission was not granted. Please check your browser site settings and allow notifications.");
                     if (btn) {
@@ -2707,29 +2686,6 @@ $user_initials = get_initials($current_user_name);
                 if (btn) {
                     btn.disabled = false;
                     btn.innerHTML = `<span>Turn On Notifications</span>`;
-                }
-            }
-        }
-
-        async function sendTestPushToSelf(btn) {
-            if (btn) {
-                btn.disabled = true;
-                btn.innerText = "Sending...";
-            }
-            try {
-                const r = await fetch('api/send_test_push.php');
-                const data = await r.json();
-                if (data.success) {
-                    alert("🔔 Test notification sent! Check your phone's notification bar.");
-                } else {
-                    alert(data.message || "Failed to send test push.");
-                }
-            } catch (e) {
-                alert("Network error sending test push.");
-            } finally {
-                if (btn) {
-                    btn.disabled = false;
-                    btn.innerText = "Send Test Notification";
                 }
             }
         }

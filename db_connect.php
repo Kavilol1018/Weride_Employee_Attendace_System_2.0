@@ -65,6 +65,22 @@ if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
+/**
+ * Global helper to insert in-app notification AND send Direct Web Push to employee's mobile/desktop devices
+ */
+function notify_employee($conn, $emp_id, $title, $message, $url = './', $tag = null) {
+    if (!$conn || empty($emp_id)) return false;
+    $escaped_emp = mysqli_real_escape_string($conn, $emp_id);
+    $escaped_msg = mysqli_real_escape_string($conn, $message);
+    @mysqli_query($conn, "INSERT INTO employee_notifications (emp_id, message, is_read, created_at) VALUES ('$escaped_emp', '$escaped_msg', 0, NOW())");
+    
+    if (file_exists(__DIR__ . '/vapid_config.php')) {
+        require_once __DIR__ . '/vapid_config.php';
+        WebPushSender::sendToEmployee($conn, $emp_id, $title, $message, $url, $tag ?: ('notif-' . time()));
+    }
+    return true;
+}
+
 function check_leave_capacity(mysqli $conn, string $start_date, string $end_date, string $emp_id, string $leave_type = 'Annual Leave') {
     // Capacity limit of 5 only applies to Annual Leave
     if (!empty($leave_type) && strpos(strtoupper($leave_type), 'ANNUAL') === false) {

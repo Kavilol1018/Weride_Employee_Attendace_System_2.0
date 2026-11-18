@@ -19,13 +19,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $status_message = "Override request approved successfully.";
         
         $msg = "Your lunchtime override request was approved by your manager.";
-        mysqli_query($conn, "INSERT INTO employee_notifications (emp_id, message) VALUES ('$emp_id', '$msg')");
+        notify_employee($conn, $emp_id, "Lunch Override Approved", $msg, "employee_dashboard.php");
     } elseif ($action == 'reject') {
         mysqli_query($conn, "UPDATE break_override_requests SET status = 'rejected' WHERE id = $request_id");
         $status_message = "Override request rejected.";
         
         $msg = "Your lunchtime override request was rejected by your manager.";
-        mysqli_query($conn, "INSERT INTO employee_notifications (emp_id, message) VALUES ('$emp_id', '$msg')");
+        notify_employee($conn, $emp_id, "Lunch Override Rejected", $msg, "employee_dashboard.php");
     }
 }
 

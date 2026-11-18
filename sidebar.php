@@ -1848,10 +1848,6 @@ body.dark-mode .global-notif-empty {
             <span style="color:#1e40af; font-weight:600;">📲 Enable Mobile Push Alerts</span>
             <button type="button" onclick="enablePushAlerts()" style="background:#2563eb; color:#ffffff; border:none; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">Enable</button>
         </div>
-        <div id="push-test-banner" style="display:none; padding:8px 14px; background:#f0fdf4; border-bottom:1px solid #bbf7d0; font-size:11px; align-items:center; justify-content:space-between; gap:8px;">
-            <span style="color:#166534; font-weight:600;">✓ Push Alerts Active</span>
-            <button type="button" onclick="sendTestPushFromSidebar(this)" style="background:#16a34a; color:#ffffff; border:none; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">Send Test</button>
-        </div>
         <div class="global-notif-list" id="global-notif-list">
             <?php if (empty($global_notifs)): ?>
                 <div class="global-notif-empty">No notifications yet.</div>
@@ -1938,12 +1934,7 @@ body.dark-mode .global-notif-empty {
             const ok = await window.subscribeWeRidePush(true);
             if (ok) {
                 if (window.checkPushBanner) window.checkPushBanner();
-                try {
-                    await fetch('api/send_test_push.php');
-                    alert("✅ Mobile push notifications are active! A test notification with the WeRide logo has been sent to your device.");
-                } catch(e) {
-                    alert("✅ Mobile push notifications are now active! You will receive WeRide alerts directly on your phone.");
-                }
+                alert("✅ Mobile push notifications are now active! You will receive WeRide alerts directly on your phone.");
             } else {
                 alert("Push notification permission was not granted. Please check your browser site settings.");
             }
@@ -1952,39 +1943,11 @@ body.dark-mode .global-notif-empty {
 
     window.checkPushBanner = function() {
         const banner = document.getElementById('push-prompt-banner');
-        const testBanner = document.getElementById('push-test-banner');
-        if ('Notification' in window && Notification.permission === 'granted') {
-            if (banner) banner.style.display = 'none';
-            if (testBanner) testBanner.style.display = 'flex';
-        } else if ('Notification' in window && Notification.permission !== 'denied') {
-            if (banner) banner.style.display = 'flex';
-            if (testBanner) testBanner.style.display = 'none';
+        if (!banner) return;
+        if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+            banner.style.display = 'flex';
         } else {
-            if (banner) banner.style.display = 'none';
-            if (testBanner) testBanner.style.display = 'none';
-        }
-    };
-
-    window.sendTestPushFromSidebar = async function(btn) {
-        if (btn) {
-            btn.disabled = true;
-            btn.innerText = 'Sending...';
-        }
-        try {
-            const r = await fetch('api/send_test_push.php');
-            const d = await r.json();
-            if (d.success) {
-                alert("🔔 Test notification sent! Check your phone's notification bar.");
-            } else {
-                alert(d.message || "Failed to send test push.");
-            }
-        } catch(e) {
-            alert("Error sending test push.");
-        } finally {
-            if (btn) {
-                btn.disabled = false;
-                btn.innerText = 'Send Test';
-            }
+            banner.style.display = 'none';
         }
     };
 

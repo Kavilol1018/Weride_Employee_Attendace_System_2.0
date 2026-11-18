@@ -51,7 +51,7 @@ if (isset($_POST['process_override'])) {
     $req_data = mysqli_fetch_assoc(mysqli_query($conn, "SELECT emp_id FROM break_override_requests WHERE id = $req_id"));
     if ($req_data) {
         $msg = "Your lunchtime override request was " . $action . " by HR.";
-        mysqli_query($conn, "INSERT INTO employee_notifications (emp_id, message) VALUES ('{$req_data['emp_id']}', '$msg')");
+        notify_employee($conn, $req_data['emp_id'], "Lunch Override " . ucfirst($action), $msg, "employee_dashboard.php");
     }
     
     header("Location: hr_dashboard.php");

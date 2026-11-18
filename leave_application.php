@@ -52,6 +52,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['leave_action']) && $ro
         if (in_array($role_slug, ['gl', 'tl'])) {
             mysqli_query($conn, "UPDATE leave_requests SET status = 'pending_hr' WHERE id = $leave_id");
             $msg = "Leave request approved and forwarded to HR.";
+            notify_employee($conn, $emp_id, "Leave Request Update", "Your $leave_type request ($start_date) was approved by your leader and forwarded to HR.", "employee_leave_history.php");
         } else {
             mysqli_query($conn, "UPDATE leave_requests SET status = 'approved' WHERE id = $leave_id");
             
@@ -120,12 +121,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['leave_action']) && $ro
                 }
             }
             $msg = "Leave request approved successfully.";
+            notify_employee($conn, $emp_id, "Leave Request Approved", "Your leave request ($leave_type for $start_date) was approved.", "employee_leave_history.php");
         }
     } elseif ($action == 'reject') {
         $rejection_topic = mysqli_real_escape_string($conn, $_POST['rejection_topic'] ?? 'Other');
         $rejection_reason = mysqli_real_escape_string($conn, $_POST['rejection_reason'] ?? '');
         mysqli_query($conn, "UPDATE leave_requests SET status = 'rejected', rejection_topic = '$rejection_topic', rejection_reason = '$rejection_reason' WHERE id = $leave_id");
         $msg = "Leave request rejected.";
+        notify_employee($conn, $emp_id, "Leave Request Update", "Your leave request ($leave_type for $start_date) was rejected: $rejection_topic", "employee_leave_history.php");
     } elseif ($action == 'cancel') {
         $lr_data_q = @mysqli_query($conn, "SELECT * FROM leave_requests WHERE id = $leave_id AND status = 'approved'");
         if ($lr_data = mysqli_fetch_assoc($lr_data_q)) {
