@@ -263,41 +263,148 @@ $text_color_map = [
         .btn:hover { background: #2563eb; }
         .btn-outline { background: white; color: #3b82f6; border: 1px solid #3b82f6; }
         
+        /* High-Performance Table Container with GPU Compositing */
         .table-container { 
             flex: 1; 
             overflow: auto; 
             background: white; 
             border-radius: 12px; 
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); 
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.08); 
             position: relative;
+            transform: translateZ(0);
+            -webkit-transform: translateZ(0);
+            will-change: scroll-position;
+            contain: paint layout;
+            overscroll-behavior-x: contain;
+            -webkit-overflow-scrolling: touch;
         }
         
-        table { border-collapse: collapse; width: 100%; white-space: nowrap; font-size: 12px; }
-        th, td { border: 1px solid #e2e8f0; padding: 14px 10px; text-align: center; }
-        .date-col { min-width: 45px; }
+        /* Separate borders prevent expensive border reconciliation recalculations on scroll */
+        table { 
+            border-collapse: separate; 
+            border-spacing: 0; 
+            width: 100%; 
+            white-space: nowrap; 
+            font-size: 12px; 
+            border-top: 1px solid #e2e8f0;
+            border-left: 1px solid #e2e8f0;
+        }
+        th, td { 
+            border-right: 1px solid #e2e8f0; 
+            border-bottom: 1px solid #e2e8f0; 
+            padding: 12px 10px; 
+            text-align: center; 
+            box-sizing: border-box;
+        }
+        .date-col { min-width: 44px; max-width: 44px; width: 44px; }
         
-        /* Sticky Headers & Columns */
+        /* Sticky Headers & Columns with Hardware Layer Promotion */
         thead th { 
             position: sticky; 
             top: 0; 
             background: #f1f5f9; 
             z-index: 10; 
             font-weight: 600;
+            will-change: transform;
+            transform: translateZ(0);
         }
         
         /* Sticky Left Columns */
-        .sticky-col-1 { position: sticky; left: 0; background: white; z-index: 5; text-align: left; min-width: 200px; font-weight: 600; cursor: pointer; }
-        .sticky-col-2 { position: sticky; left: 220px; background: white; z-index: 5; cursor: pointer; }
-        .sticky-col-3 { position: sticky; left: 320px; background: white; z-index: 5; cursor: pointer; }
-        .sticky-col-4 { position: sticky; left: 450px; background: white; z-index: 5; cursor: pointer; }
+        .sticky-col-1 { 
+            position: sticky; 
+            left: 0; 
+            background: white; 
+            z-index: 5; 
+            text-align: left; 
+            min-width: 220px; 
+            max-width: 220px;
+            width: 220px;
+            font-weight: 600; 
+            cursor: pointer; 
+            box-sizing: border-box;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            will-change: transform;
+            transform: translateZ(0);
+        }
+        .sticky-col-2 { 
+            position: sticky; 
+            left: 220px; 
+            background: white; 
+            z-index: 5; 
+            min-width: 110px;
+            max-width: 110px;
+            width: 110px;
+            cursor: pointer; 
+            box-sizing: border-box;
+            white-space: nowrap;
+            will-change: transform;
+            transform: translateZ(0);
+        }
+        .sticky-col-3 { 
+            position: sticky; 
+            left: 330px; 
+            background: white; 
+            z-index: 5; 
+            min-width: 120px;
+            max-width: 120px;
+            width: 120px;
+            cursor: pointer; 
+            box-sizing: border-box;
+            white-space: nowrap;
+            will-change: transform;
+            transform: translateZ(0);
+        }
+        .sticky-col-4 { 
+            position: sticky; 
+            left: 450px; 
+            background: white; 
+            z-index: 5; 
+            min-width: 160px;
+            max-width: 160px;
+            width: 160px;
+            cursor: pointer; 
+            box-sizing: border-box;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            will-change: transform;
+            transform: translateZ(0);
+            box-shadow: 3px 0 6px -2px rgba(0,0,0,0.1);
+        }
         
         /* Z-index fix for top-left intersection */
         thead th.sticky-col-1, thead th.sticky-col-2, thead th.sticky-col-3, thead th.sticky-col-4 {
             z-index: 20;
             background: #e2e8f0;
         }
+        thead th.sticky-col-4 {
+            box-shadow: 3px 0 6px -2px rgba(0,0,0,0.1);
+        }
         
         .summary-header { background: #dcfce7 !important; color: #166534; }
+        
+        /* Sleek scrollbars for PC */
+        .table-container::-webkit-scrollbar,
+        .top-scrollbar-wrapper::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .table-container::-webkit-scrollbar-track,
+        .top-scrollbar-wrapper::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+        .table-container::-webkit-scrollbar-thumb,
+        .top-scrollbar-wrapper::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .table-container::-webkit-scrollbar-thumb:hover,
+        .top-scrollbar-wrapper::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
         
     </style>
     <link rel="stylesheet" href="assets/css/global_fixes.css?v=<?php echo time(); ?>">
@@ -347,7 +454,12 @@ $text_color_map = [
             </form>
         </div>
 
-        <div class="table-container">
+        <!-- Synchronized Top Horizontal Scrollbar for PC -->
+        <div class="top-scrollbar-wrapper" id="topScrollWrapper" style="overflow-x: auto; overflow-y: hidden; height: 10px; margin-bottom: 6px; border-radius: 6px; background: #f8fafc; display: none;">
+            <div id="topScrollTrack" style="height: 10px;"></div>
+        </div>
+
+        <div class="table-container" id="mainTableContainer">
             <table>
                 <thead>
                     <tr>
@@ -549,7 +661,7 @@ $text_color_map = [
                             $cell_date = sprintf("%04d-%02d-%02d", $selected_year, $selected_month, $d);
                             $editable_class = $can_edit_calendar ? 'editable-cell' : '';
                         ?>
-                            <td class="<?= $editable_class ?> date-col" data-emp="<?= htmlspecialchars($emp_id) ?>" data-date="<?= $cell_date ?>" data-val="<?= $text ?>" data-status="<?= $st ?>" style="background-color: <?= $bg ?>; color: <?= $tc ?>; font-weight: 600; <?= $can_edit_calendar ? 'cursor: pointer;' : '' ?> position: relative;">
+                            <td class="<?= $editable_class ?> date-col" data-emp="<?= htmlspecialchars($emp_id) ?>" data-date="<?= $cell_date ?>" data-val="<?= $text ?>" data-status="<?= $st ?>" style="background-color: <?= $bg ?>; color: <?= $tc ?>; font-weight: 600; <?= $can_edit_calendar ? 'cursor: pointer;' : '' ?>">
                                 <?= $text ?>
                             </td>
                         <?php endfor; ?>
@@ -572,6 +684,8 @@ $text_color_map = [
                 
                 // If already editing, ignore
                 if (this.querySelector('select')) return;
+                
+                this.style.position = 'relative';
                 
                 const currentVal = this.dataset.val || '';
                 const empId = this.dataset.emp;
@@ -619,6 +733,7 @@ $text_color_map = [
                 const saveEdit = () => {
                     const newVal = select.value;
                     this.innerHTML = 'Saving...';
+                    this.style.position = '';
                     
                     fetch(window.location.pathname, {
                         method: 'POST',
@@ -632,6 +747,7 @@ $text_color_map = [
                     })
                     .then(r => r.json())
                     .then(data => {
+                        this.style.position = '';
                         if (data.success) {
                             this.dataset.val = newVal;
                             this.innerHTML = newVal;
@@ -647,6 +763,7 @@ $text_color_map = [
                         }
                     })
                     .catch((err) => {
+                        this.style.position = '';
                         this.innerHTML = currentVal;
                         alert("Error communicating with server: " + err.message);
                     });
@@ -660,6 +777,79 @@ $text_color_map = [
     </script>
     
     <script>
+    // Dynamic Pixel-Perfect Sticky Column Alignment and Top Scrollbar Sync
+    function alignStickyColumns() {
+        const table = document.querySelector('.table-container table');
+        if (!table) return;
+        const ths = table.querySelectorAll('thead tr:first-child th');
+        if (ths.length >= 4) {
+            const w1 = ths[0].getBoundingClientRect().width;
+            const w2 = ths[1].getBoundingClientRect().width;
+            const w3 = ths[2].getBoundingClientRect().width;
+            
+            const left2 = Math.round(w1);
+            const left3 = Math.round(w1 + w2);
+            const left4 = Math.round(w1 + w2 + w3);
+            
+            document.querySelectorAll('.sticky-col-2').forEach(el => el.style.left = left2 + 'px');
+            document.querySelectorAll('.sticky-col-3').forEach(el => el.style.left = left3 + 'px');
+            document.querySelectorAll('.sticky-col-4').forEach(el => el.style.left = left4 + 'px');
+        }
+    }
+
+    function initDualScrollbar() {
+        const topScroll = document.getElementById('topScrollWrapper');
+        const mainScroll = document.getElementById('mainTableContainer');
+        const topTrack = document.getElementById('topScrollTrack');
+        
+        if (!topScroll || !mainScroll || !topTrack) return;
+        
+        const updateTrack = () => {
+            const scrollW = mainScroll.scrollWidth;
+            const clientW = mainScroll.clientWidth;
+            if (scrollW > clientW + 2) {
+                topScroll.style.display = 'block';
+                topTrack.style.width = scrollW + 'px';
+            } else {
+                topScroll.style.display = 'none';
+            }
+        };
+        
+        updateTrack();
+        window.addEventListener('resize', () => {
+            alignStickyColumns();
+            updateTrack();
+        });
+        
+        let syncingTop = false;
+        let syncingMain = false;
+        
+        topScroll.addEventListener('scroll', () => {
+            if (!syncingTop) {
+                syncingMain = true;
+                mainScroll.scrollLeft = topScroll.scrollLeft;
+            }
+            syncingTop = false;
+        }, { passive: true });
+        
+        mainScroll.addEventListener('scroll', () => {
+            if (!syncingMain) {
+                syncingTop = true;
+                topScroll.scrollLeft = mainScroll.scrollLeft;
+            }
+            syncingMain = false;
+        }, { passive: true });
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        alignStickyColumns();
+        initDualScrollbar();
+    });
+    window.addEventListener('load', () => {
+        alignStickyColumns();
+        initDualScrollbar();
+    });
+
     function sortTable(n) {
         var table, rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
         table = document.querySelector(".table-container table");
@@ -707,6 +897,7 @@ $text_color_map = [
                 }
             }
         }
+        alignStickyColumns();
     }
     </script>
 
