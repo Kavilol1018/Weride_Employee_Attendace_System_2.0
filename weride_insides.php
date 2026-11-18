@@ -467,9 +467,13 @@ if ($action) {
         $online_cnt = (int)(mysqli_fetch_assoc($online_res)['cnt'] ?? 0);
         if ($online_cnt === 0 && !empty($current_emp_id)) $online_cnt = 1;
 
+        $notif_cnt_res = mysqli_query($conn, "SELECT COUNT(*) as cnt FROM employee_notifications WHERE emp_id = '" . mysqli_real_escape_string($conn, $current_emp_id) . "' AND is_read = 0");
+        $unread_cnt = (int)(mysqli_fetch_assoc($notif_cnt_res)['cnt'] ?? 0);
+
         echo json_encode([
             'success' => true,
-            'online_count' => $online_cnt
+            'online_count' => $online_cnt,
+            'unread_notifications' => $unread_cnt
         ]);
         exit();
     }
@@ -825,22 +829,76 @@ $user_initials = get_initials($current_user_name);
             color: var(--ci-accent);
         }
 
+        .ci-refresh-btn {
+            background: var(--ci-card);
+            border: 1px solid var(--ci-border);
+            color: var(--ci-text);
+            height: 38px;
+            padding: 0 14px;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-right: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            white-space: nowrap;
+        }
+
+        .ci-refresh-btn:hover {
+            background: var(--ci-accent-soft);
+            border-color: var(--ci-accent);
+            color: var(--ci-accent);
+            transform: translateY(-1px);
+        }
+
+        .ci-refresh-btn.spinning .ci-refresh-icon {
+            animation: ciSpin 0.7s linear infinite;
+        }
+
+        @keyframes ciSpin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
         .ci-notif-badge {
             position: absolute;
-            top: -4px;
-            right: -4px;
+            top: -5px;
+            right: -6px;
             background: #ef4444;
             color: #fff;
             font-size: 10px;
-            font-weight: 700;
+            font-weight: 800;
             height: 18px;
             min-width: 18px;
-            padding: 0 4px;
-            border-radius: 9px;
+            padding: 0 5px;
+            border-radius: 999px;
             display: flex;
             align-items: center;
             justify-content: center;
             border: 2px solid var(--ci-card);
+            box-shadow: 0 2px 6px rgba(239, 68, 68, 0.45);
+            animation: pulseBadge 2s infinite ease-in-out;
+            z-index: 2;
+        }
+
+        @keyframes pulseBadge {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+        }
+
+        @media (max-width: 600px) {
+            .ci-refresh-btn {
+                padding: 0 10px;
+                width: 38px;
+                justify-content: center;
+            }
+            .ci-refresh-text {
+                display: none;
+            }
         }
 
         .ci-notif-dropdown {
@@ -1696,6 +1754,14 @@ $user_initials = get_initials($current_user_name);
                 <h1>WeRide Insides</h1>
             </div>
             <div class="ci-topbar-right">
+                <!-- REFRESH FEED BUTTON -->
+                <button type="button" class="ci-refresh-btn" id="feed-refresh-btn" onclick="refreshFeed()" title="Refresh WeRide Insides Feed">
+                    <svg class="ci-refresh-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.19"/>
+                    </svg>
+                    <span class="ci-refresh-text">Refresh</span>
+                </button>
+
                 <!-- NOTIFICATION BELL -->
                 <div class="ci-notif-wrapper">
                     <button type="button" class="ci-notif-btn" id="notif-btn" onclick="toggleNotifDropdown()" title="Notifications">
@@ -1846,6 +1912,10 @@ $user_initials = get_initials($current_user_name);
                         <button class="ci-filter-pill" onclick="filterPosts('photo', this)">Photos</button>
                         <button class="ci-filter-pill" onclick="filterPosts('video', this)">Videos</button>
                         <button class="ci-filter-pill" onclick="filterPosts('none', this)">Tweets</button>
+                        <button type="button" class="ci-filter-pill ci-filter-refresh" onclick="refreshFeed()" title="Refresh Feed" style="margin-left: auto; display: inline-flex; align-items: center; gap: 5px; color: var(--ci-accent); font-weight: 800;">
+                            <span class="feed-filter-spin-icon" style="display: inline-block;">🔄</span>
+                            <span>Refresh Feed</span>
+                        </button>
                     </div>
 
                     <!-- POSTS LIST -->
@@ -2603,7 +2673,25 @@ $user_initials = get_initials($current_user_name);
         });
 
         // ====================================================================
-        // REAL-TIME LIVE ONLINE COUNT (Heartbeat every 20s)
+        // REFRESH FEED HELPER
+        // ====================================================================
+        function refreshFeed() {
+            const btn = document.getElementById('feed-refresh-btn');
+            if (btn) btn.classList.add('spinning');
+
+            const filterIcon = document.querySelector('.feed-filter-spin-icon');
+            if (filterIcon) {
+                filterIcon.style.transition = 'transform 0.5s ease';
+                filterIcon.style.transform = 'rotate(360deg)';
+            }
+
+            setTimeout(() => {
+                window.location.reload();
+            }, 180);
+        }
+
+        // ====================================================================
+        // REAL-TIME LIVE ONLINE COUNT & UNREAD NOTIFICATIONS (Heartbeat every 20s)
         // ====================================================================
         function pingHeartbeat() {
             const formData = new FormData();
@@ -2615,16 +2703,36 @@ $user_initials = get_initials($current_user_name);
             })
             .then(r => r.json())
             .then(res => {
-                if (res && res.success && typeof res.online_count === 'number') {
-                    const count = res.online_count;
-                    const statEl = document.getElementById('stat-online-count');
-                    if (statEl) statEl.innerText = count;
+                if (res && res.success) {
+                    if (typeof res.online_count === 'number') {
+                        const count = res.online_count;
+                        const statEl = document.getElementById('stat-online-count');
+                        if (statEl) statEl.innerText = count;
 
-                    const widgetEl = document.getElementById('widget-online-count');
-                    if (widgetEl) widgetEl.innerText = count;
+                        const widgetEl = document.getElementById('widget-online-count');
+                        if (widgetEl) widgetEl.innerText = count;
 
-                    const topbarEl = document.getElementById('topbar-online-text');
-                    if (topbarEl) topbarEl.innerText = count + ' Online';
+                        const topbarEl = document.getElementById('topbar-online-text');
+                        if (topbarEl) topbarEl.innerText = count + ' Online';
+                    }
+
+                    if (typeof res.unread_notifications === 'number') {
+                        const unread = res.unread_notifications;
+                        const notifBtn = document.getElementById('notif-btn');
+                        let badge = document.getElementById('notif-badge');
+
+                        if (unread > 0) {
+                            if (!badge && notifBtn) {
+                                badge = document.createElement('span');
+                                badge.className = 'ci-notif-badge';
+                                badge.id = 'notif-badge';
+                                notifBtn.appendChild(badge);
+                            }
+                            if (badge) badge.innerText = unread > 99 ? '99+' : unread;
+                        } else if (badge) {
+                            badge.remove();
+                        }
+                    }
                 }
             })
             .catch(() => {});

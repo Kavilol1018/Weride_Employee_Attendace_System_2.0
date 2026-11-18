@@ -53,13 +53,20 @@ if (isset($conn) && $role_slug !== 'employee') {
 $global_notif_emp_id = $_SESSION['emp_id'] ?? '';
 $global_notifs = [];
 $global_unread_notifs_cnt = 0;
+$feed_unread_cnt = 0;
 if (!empty($global_notif_emp_id) && isset($conn) && $conn instanceof mysqli) {
     $safe_global_emp_id = mysqli_real_escape_string($conn, $global_notif_emp_id);
     $global_notif_q = @mysqli_query($conn, "SELECT id, message, is_read, created_at FROM employee_notifications WHERE emp_id = '$safe_global_emp_id' ORDER BY created_at DESC LIMIT 20");
     if ($global_notif_q) {
         while ($gn = mysqli_fetch_assoc($global_notif_q)) {
             $global_notifs[] = $gn;
-            if ((int)$gn['is_read'] === 0) $global_unread_notifs_cnt++;
+            if ((int)$gn['is_read'] === 0) {
+                $global_unread_notifs_cnt++;
+                $m = strtolower($gn['message']);
+                if (strpos($m, 'post') !== false || strpos($m, 'comment') !== false || strpos($m, 'insides') !== false || strpos($m, 'liked') !== false || strpos($m, 'mentioned') !== false || strpos($m, 'community') !== false) {
+                    $feed_unread_cnt++;
+                }
+            }
         }
     }
     // Cache profile picture in session if not set yet
@@ -815,6 +822,10 @@ if (!function_exists('get_sidebar_notif_time')) {
             padding-bottom: calc(75px + env(safe-area-inset-bottom, 0px)) !important;
         }
     }
+@keyframes pulseBadge {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.18); }
+}
 </style>
 
 <!-- Mobile Overlay -->
@@ -1076,7 +1087,12 @@ if (!function_exists('get_sidebar_notif_time')) {
         <!-- WeRide Insides -->
         <a href="weride_insides.php" style="text-decoration: none;">
             <li class="nav-item <?php echo $current_page == 'weride_insides.php' ? 'active' : ''; ?>" style="display: flex; align-items: center; justify-content: space-between;">
-                <span>WeRide Insides</span>
+                <span style="display: flex; align-items: center; gap: 8px;">
+                    <span>WeRide Insides</span>
+                    <?php if ($feed_unread_cnt > 0): ?>
+                        <span style="background: #ef4444; color: #fff; font-size: 10px; font-weight: 800; min-width: 18px; height: 18px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; padding: 0 5px; box-shadow: 0 2px 6px rgba(239, 68, 68, 0.45); animation: pulseBadge 2s infinite;"><?php echo $feed_unread_cnt > 99 ? '99+' : $feed_unread_cnt; ?></span>
+                    <?php endif; ?>
+                </span>
                 <span style="font-size: 10px; background: linear-gradient(135deg, #00a6d6, #0284c7); color: white; padding: 2px 7px; border-radius: 999px; font-weight: 700; letter-spacing: 0.5px;">FEED</span>
             </li>
         </a>
@@ -1196,8 +1212,11 @@ if (!function_exists('get_sidebar_notif_time')) {
             <span class="mobile-nav-label">Home</span>
         </a>
         <a href="weride_insides.php" class="mobile-nav-link <?php echo strpos($current_page, 'weride_insides') !== false ? 'active' : ''; ?>">
-            <span class="mobile-nav-icon">
+            <span class="mobile-nav-icon" style="position: relative; display: inline-flex; align-items: center; justify-content: center;">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 20H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v1m2 13a2 2 0 0 1-2-2V7m2 13a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
+                <?php if ($feed_unread_cnt > 0): ?>
+                    <span class="feed-mobile-badge" style="position: absolute; top: -6px; right: -9px; background: #ef4444; color: #ffffff; font-size: 10px; font-weight: 800; min-width: 17px; height: 17px; border-radius: 999px; display: flex; align-items: center; justify-content: center; padding: 0 4px; border: 2px solid var(--sidebar-bg, #ffffff); box-shadow: 0 2px 6px rgba(239, 68, 68, 0.5); z-index: 5; animation: pulseBadge 2s infinite;"><?php echo $feed_unread_cnt > 99 ? '99+' : $feed_unread_cnt; ?></span>
+                <?php endif; ?>
             </span>
             <span class="mobile-nav-label">Feed</span>
         </a>
@@ -1227,8 +1246,11 @@ if (!function_exists('get_sidebar_notif_time')) {
             <span class="mobile-nav-label">Home</span>
         </a>
         <a href="weride_insides.php" class="mobile-nav-link <?php echo strpos($current_page, 'weride_insides') !== false ? 'active' : ''; ?>">
-            <span class="mobile-nav-icon">
+            <span class="mobile-nav-icon" style="position: relative; display: inline-flex; align-items: center; justify-content: center;">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 20H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v1m2 13a2 2 0 0 1-2-2V7m2 13a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
+                <?php if ($feed_unread_cnt > 0): ?>
+                    <span class="feed-mobile-badge" style="position: absolute; top: -6px; right: -9px; background: #ef4444; color: #ffffff; font-size: 10px; font-weight: 800; min-width: 17px; height: 17px; border-radius: 999px; display: flex; align-items: center; justify-content: center; padding: 0 4px; border: 2px solid var(--sidebar-bg, #ffffff); box-shadow: 0 2px 6px rgba(239, 68, 68, 0.5); z-index: 5; animation: pulseBadge 2s infinite;"><?php echo $feed_unread_cnt > 99 ? '99+' : $feed_unread_cnt; ?></span>
+                <?php endif; ?>
             </span>
             <span class="mobile-nav-label">Feed</span>
         </a>
@@ -1258,8 +1280,11 @@ if (!function_exists('get_sidebar_notif_time')) {
             <span class="mobile-nav-label">Home</span>
         </a>
         <a href="weride_insides.php" class="mobile-nav-link <?php echo strpos($current_page, 'weride_insides') !== false ? 'active' : ''; ?>">
-            <span class="mobile-nav-icon">
+            <span class="mobile-nav-icon" style="position: relative; display: inline-flex; align-items: center; justify-content: center;">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 20H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v1m2 13a2 2 0 0 1-2-2V7m2 13a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
+                <?php if ($feed_unread_cnt > 0): ?>
+                    <span class="feed-mobile-badge" style="position: absolute; top: -6px; right: -9px; background: #ef4444; color: #ffffff; font-size: 10px; font-weight: 800; min-width: 17px; height: 17px; border-radius: 999px; display: flex; align-items: center; justify-content: center; padding: 0 4px; border: 2px solid var(--sidebar-bg, #ffffff); box-shadow: 0 2px 6px rgba(239, 68, 68, 0.5); z-index: 5; animation: pulseBadge 2s infinite;"><?php echo $feed_unread_cnt > 99 ? '99+' : $feed_unread_cnt; ?></span>
+                <?php endif; ?>
             </span>
             <span class="mobile-nav-label">Feed</span>
         </a>
@@ -1822,6 +1847,10 @@ body.dark-mode .global-notif-empty {
         width: auto !important;
         max-width: calc(100vw - 24px) !important;
     }
+}
+@keyframes pulseBadge {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.18); }
 }
 </style>
 
