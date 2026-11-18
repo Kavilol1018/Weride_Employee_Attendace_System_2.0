@@ -1275,9 +1275,7 @@ if (!function_exists('get_sidebar_notif_time')) {
 
     // Auto Device Detection: Guarantees ANY mobile phone formats like a native app
     function checkDeviceMode() {
-        const isMobile = window.innerWidth <= 1024 || 
-                         /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-                         (navigator.maxTouchPoints > 0 && window.innerWidth <= 1200);
+        const isMobile = window.innerWidth <= 1024;
         if (isMobile) {
             document.body.classList.add('mobile-mode');
             document.body.classList.remove('sidebar-collapsed');
