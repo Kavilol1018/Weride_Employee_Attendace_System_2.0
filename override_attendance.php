@@ -127,12 +127,47 @@ $selected_year = isset($_GET['year']) ? (int)$_GET['year'] : (int)date('Y');
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <title>Override Attendance - WeRide</title>
     <link rel="icon" type="image/png" href="pic/logo_only.png">
     <style>
-        body { margin: 0; font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg-color, #f8fafc); color: var(--text-color, #1e293b); display: flex; height: 100vh; overflow: hidden; transition: background 0.2s, color 0.2s; }
-        .main-content { flex: 1; padding: 30px; overflow-y: auto; display: flex; flex-direction: column; }
+        body { 
+            margin: 0; 
+            font-family: 'Segoe UI', Tahoma, sans-serif; 
+            background: var(--bg-color, #f8fafc); 
+            color: var(--text-color, #1e293b); 
+            min-height: 100vh; 
+            transition: background 0.2s, color 0.2s; 
+        }
+        .main-content { 
+            flex: 1; 
+            padding: 30px; 
+            overflow-y: auto; 
+            -webkit-overflow-scrolling: touch;
+            display: flex; 
+            flex-direction: column; 
+            min-height: 0;
+            box-sizing: border-box;
+        }
+        @media (min-width: 1025px) {
+            .main-content {
+                height: 100vh;
+                max-height: 100vh;
+            }
+        }
+        @media (max-width: 1024px) {
+            body {
+                height: auto !important;
+                overflow-y: auto !important;
+            }
+            .main-content {
+                height: auto !important;
+                overflow-y: visible !important;
+                padding: max(20px, calc(16px + env(safe-area-inset-top, 0px))) 16px calc(100px + env(safe-area-inset-bottom, 0px)) 16px !important;
+            }
+        }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
         .header h1 { margin: 0; font-size: 24px; color: var(--text-color, #1e293b); }
         .card { background: var(--card-bg, white); border-radius: 12px; padding: 25px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; transition: background 0.2s; }
