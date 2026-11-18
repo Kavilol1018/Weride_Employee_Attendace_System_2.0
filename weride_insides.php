@@ -870,6 +870,21 @@ $user_initials = get_initials($current_user_name);
             overflow: hidden;
             display: flex;
             flex-direction: column;
+            text-align: left;
+        }
+
+        @media (max-width: 640px) {
+            .ci-notif-dropdown {
+                position: fixed !important;
+                top: 72px;
+                left: 12px !important;
+                right: 12px !important;
+                width: auto !important;
+                max-width: calc(100vw - 24px) !important;
+                max-height: 70vh !important;
+                z-index: 999999 !important;
+                box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45) !important;
+            }
         }
 
         .ci-notif-header {
@@ -1465,10 +1480,13 @@ $user_initials = get_initials($current_user_name);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: max(22px, calc(16px + env(safe-area-inset-top, 0px))) 20px 14px 20px;
-            background: linear-gradient(180deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.4) 70%, transparent 100%);
+            padding-top: max(60px, calc(20px + env(safe-area-inset-top, 44px)));
+            padding-bottom: 14px;
+            padding-left: 20px;
+            padding-right: 20px;
+            background: linear-gradient(180deg, rgba(0, 0, 0, 0.92) 0%, rgba(0, 0, 0, 0.6) 80%, transparent 100%);
             z-index: 10;
-            cursor: default;
+            cursor: pointer;
             box-sizing: border-box;
             width: 100%;
         }
@@ -1495,6 +1513,8 @@ $user_initials = get_initials($current_user_name);
         .ci-lightbox-btn {
             width: 44px;
             height: 44px;
+            min-width: 44px;
+            min-height: 44px;
             border-radius: 12px;
             background: rgba(255, 255, 255, 0.18);
             border: 1px solid rgba(255, 255, 255, 0.3);
@@ -1516,8 +1536,10 @@ $user_initials = get_initials($current_user_name);
         }
 
         .ci-lightbox-close {
-            background: rgba(239, 68, 68, 0.45) !important;
-            border-color: rgba(239, 68, 68, 0.7) !important;
+            background: rgba(239, 68, 68, 0.85) !important;
+            border-color: rgba(255, 255, 255, 0.4) !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 14px rgba(239, 68, 68, 0.5) !important;
         }
 
         .ci-lightbox-close:hover,
@@ -2592,9 +2614,20 @@ $user_initials = get_initials($current_user_name);
         // ====================================================================
         function toggleNotifDropdown() {
             const dropdown = document.getElementById('notif-dropdown');
+            const btn = document.getElementById('notif-btn');
             if (!dropdown) return;
             const isShown = dropdown.style.display === 'flex' || dropdown.style.display === 'block';
-            dropdown.style.display = isShown ? 'none' : 'flex';
+            if (!isShown) {
+                if (window.innerWidth <= 640 && btn) {
+                    const rect = btn.getBoundingClientRect();
+                    if (rect && rect.bottom) {
+                        dropdown.style.top = (rect.bottom + 8) + 'px';
+                    }
+                }
+                dropdown.style.display = 'flex';
+            } else {
+                dropdown.style.display = 'none';
+            }
         }
 
         function markAllNotifsRead() {
@@ -2639,7 +2672,7 @@ $user_initials = get_initials($current_user_name);
         }
 
         function closeLightbox(e) {
-            if (e && e.target && (e.target.id === 'lightbox-img' || e.target.closest('#lightbox-download'))) return;
+            if (e && e.target && e.target.closest('#lightbox-download')) return;
             const lb = document.getElementById('ci-lightbox');
             if (!lb) return;
 
