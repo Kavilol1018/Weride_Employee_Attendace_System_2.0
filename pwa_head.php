@@ -68,3 +68,4 @@ function promptPwaInstall() {
     }
 }
 </script>
+<?php include_once __DIR__ . '/boot_screen.php'; ?>
