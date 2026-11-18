@@ -63,7 +63,7 @@ class WebPushSender {
             'aud' => $audience,
             'exp' => time() + 86400,
             'sub' => VAPID_SUBJECT
-        ]));
+        ], JSON_UNESCAPED_SLASHES));
         
         $dataToSign = $header . '.' . $payload;
         $derSig = '';
@@ -88,24 +88,27 @@ class WebPushSender {
             return false;
         }
 
-        // IKM derivation (RFC 8291 section 3.4)
+        // 1. PRK_key = HMAC-SHA-256(auth_secret, ecdh_secret) [RFC 8291 sec 3.4]
+        $prk_key = hash_hmac('sha256', $sharedSecret, $userAuthRaw, true);
+
+        // 2. IKM = HKDF-Expand(PRK_key, key_info, 32)
         $keyInfo = "WebPush: info\0" . $userPubKeyRaw . $serverEphemeralPubRaw;
-        $ikm = hash_hkdf('sha256', $sharedSecret, 32, $keyInfo, $userAuthRaw);
-        
-        // Salt (16 bytes)
+        $ikm = hash_hmac('sha256', $keyInfo . "\x01", $prk_key, true);
+
+        // 3. Salt (16 bytes) & PRK for content encryption [RFC 8188]
         $salt = random_bytes(16);
         $prk = hash_hmac('sha256', $ikm, $salt, true);
-        
-        // CEK and Nonce
-        $cek = hash_hkdf('sha256', $prk, 16, "Content-Encoding: aes128gcm\0", '');
-        $nonce = hash_hkdf('sha256', $prk, 12, "Content-Encoding: nonce\0", '');
-        
-        // Padding (\x02 delimiter)
+
+        // 4. Derive Content Encryption Key (CEK) & Base Nonce
+        $cek = substr(hash_hmac('sha256', "Content-Encoding: aes128gcm\0\x01", $prk, true), 0, 16);
+        $nonce = substr(hash_hmac('sha256', "Content-Encoding: nonce\0\x01", $prk, true), 0, 12);
+
+        // 5. Padding (\x02 delimiter for single/final record) & AES-128-GCM encryption
         $padded = $payloadJson . "\x02";
         $tag = '';
         $ciphertext = openssl_encrypt($padded, 'aes-128-gcm', $cek, OPENSSL_RAW_DATA, $nonce, $tag);
-        
-        // RFC 8188 Header
+
+        // 6. RFC 8188 Header (86 bytes: 16 salt + 4 rs + 1 idlen + 65 as_public)
         $header = $salt . pack('N', 4096) . pack('C', 65) . $serverEphemeralPubRaw;
         return $header . $ciphertext . $tag;
     }

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'weride-pwa-v3';
+const CACHE_NAME = 'weride-pwa-v4';
 const STATIC_ASSETS = [
   './pic/logo_only.png',
   './pic/WeRide.png',
@@ -94,16 +94,18 @@ self.addEventListener('push', (event) => {
     };
   }
 
+  const origin = self.location ? self.location.origin : '';
   const title = data.title || 'WeRide Attendance';
+  const logoUrl = origin ? (origin + '/pic/logo_only.png') : './pic/logo_only.png';
+
   const options = {
     body: data.body || 'You have an important update from WeRide.',
-    icon: './pic/logo_only.png',
-    badge: './pic/logo_only.png',
+    icon: data.icon || logoUrl,
+    badge: data.badge || logoUrl,
     image: data.image || null,
-    vibrate: [200, 100, 200, 100, 200],
+    vibrate: [200, 100, 200],
     tag: data.tag || ('weride-alert-' + Date.now()),
     renotify: true,
-    requireInteraction: true,
     data: {
       url: data.url || './',
       timestamp: Date.now()
