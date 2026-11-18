@@ -186,7 +186,7 @@ $selected_year = isset($_GET['year']) ? (int)$_GET['year'] : (int)date('Y');
         .row { display: flex; gap: 20px; flex-wrap: wrap; }
         .col { flex: 1; min-width: 300px; }
 
-        /* Dark mode variables */
+        /* Dark mode variables and controls */
         body.dark-mode {
             --bg-color: #0f172a;
             --text-color: #f8fafc;
@@ -200,6 +200,70 @@ $selected_year = isset($_GET['year']) ? (int)$_GET['year'] : (int)date('Y');
             --success-text: #34d399;
             --error-bg: #7f1d1d;
             --error-text: #fca5a5;
+            color-scheme: dark;
+        }
+
+        body.dark-mode input,
+        body.dark-mode select,
+        body.dark-mode textarea,
+        body.dark-mode .form-control {
+            background-color: #0f172a !important;
+            color: #f8fafc !important;
+            border-color: #334155 !important;
+            color-scheme: dark;
+        }
+
+        body.dark-mode .form-control:focus {
+            border-color: #3b82f6 !important;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25) !important;
+        }
+
+        body.dark-mode select.form-control option {
+            background-color: #1e293b !important;
+            color: #f8fafc !important;
+        }
+
+        body.dark-mode input::placeholder {
+            color: #64748b !important;
+        }
+
+        /* TomSelect Dark Mode Fixes */
+        body.dark-mode .ts-control {
+            background: #0f172a !important;
+            border-color: #334155 !important;
+            color: #f8fafc !important;
+        }
+        body.dark-mode .ts-control .item {
+            color: #f8fafc !important;
+        }
+        body.dark-mode .ts-control input,
+        body.dark-mode .ts-control > input,
+        body.dark-mode .ts-wrapper input {
+            color: #f8fafc !important;
+            background: transparent !important;
+        }
+        body.dark-mode .ts-control input::placeholder,
+        body.dark-mode .ts-wrapper input::placeholder {
+            color: #64748b !important;
+        }
+        body.dark-mode .ts-dropdown {
+            background: #1e293b !important;
+            border-color: #334155 !important;
+            color: #f8fafc !important;
+        }
+        body.dark-mode .ts-dropdown .option {
+            color: #f1f5f9 !important;
+            background: #1e293b !important;
+        }
+        body.dark-mode .ts-dropdown .option:hover,
+        body.dark-mode .ts-dropdown .option.active,
+        body.dark-mode .ts-dropdown .active {
+            background-color: #2563eb !important;
+            color: #ffffff !important;
+        }
+        body.dark-mode .ts-dropdown .no-results {
+            color: #94a3b8 !important;
+            background: transparent !important;
         }
     </style>
     <link rel="stylesheet" href="assets/css/global_fixes.css?v=<?php echo time(); ?>">
@@ -245,15 +309,15 @@ $selected_year = isset($_GET['year']) ? (int)$_GET['year'] : (int)date('Y');
 
                     <div class="row" style="gap: 15px; margin-bottom: 10px;">
                         <div style="flex: 1;">
-                            <label style="display:block; font-weight:600; font-size:13px; margin-bottom:5px;">Clock In Time</label>
+                            <label class="form-label">Clock In Time</label>
                             <input type="time" name="clock_in" id="clock_in" class="form-control">
                         </div>
                         <div style="flex: 1;">
-                            <label style="display:block; font-weight:600; font-size:13px; margin-bottom:5px;">Clock Out Time</label>
+                            <label class="form-label">Clock Out Time</label>
                             <input type="time" name="clock_out" id="clock_out" class="form-control">
                         </div>
                         <div style="flex: 1;">
-                            <label style="display:block; font-weight:600; font-size:13px; margin-bottom:5px;">Work Hours (hrs)</label>
+                            <label class="form-label">Work Hours (hrs)</label>
                             <input type="number" step="0.01" min="0" max="24" name="work_hours" id="work_hours" class="form-control" placeholder="Auto-calculated">
                         </div>
                     </div>
@@ -270,7 +334,7 @@ $selected_year = isset($_GET['year']) ? (int)$_GET['year'] : (int)date('Y');
                 <form action="import_attendance.php" method="POST" enctype="multipart/form-data">
                     <div class="row" style="gap: 15px; margin-bottom: 15px;">
                         <div style="flex: 1;">
-                            <label style="display:block; font-weight:600; font-size:13px; margin-bottom:5px;">Month</label>
+                            <label class="form-label">Month</label>
                             <select name="month" required class="form-control">
                                 <?php
                                 for ($m=1; $m<=12; $m++) {
@@ -282,7 +346,7 @@ $selected_year = isset($_GET['year']) ? (int)$_GET['year'] : (int)date('Y');
                             </select>
                         </div>
                         <div style="flex: 1;">
-                            <label style="display:block; font-weight:600; font-size:13px; margin-bottom:5px;">Year</label>
+                            <label class="form-label">Year</label>
                             <select name="year" required class="form-control">
                                 <?php
                                 for ($y=$selected_year-1; $y<=$selected_year+2; $y++) {

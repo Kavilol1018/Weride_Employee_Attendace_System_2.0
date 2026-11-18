@@ -1514,21 +1514,41 @@ document.addEventListener("DOMContentLoaded", function() {
     font-size: 14px;
 }
 body.dark-mode .ts-control {
-    background: #1e293b;
-    border-color: #334155;
-    color: #f8fafc;
+    background: #1e293b !important;
+    border-color: #334155 !important;
+    color: #f8fafc !important;
+}
+body.dark-mode .ts-control .item {
+    color: #f8fafc !important;
+}
+body.dark-mode .ts-control input,
+body.dark-mode .ts-control > input,
+body.dark-mode .ts-wrapper input {
+    color: #f8fafc !important;
+    background: transparent !important;
+}
+body.dark-mode .ts-control input::placeholder,
+body.dark-mode .ts-wrapper input::placeholder {
+    color: #94a3b8 !important;
 }
 body.dark-mode .ts-dropdown {
-    background: #1e293b;
-    border-color: #334155;
-    color: #f8fafc;
+    background: #1e293b !important;
+    border-color: #334155 !important;
+    color: #f8fafc !important;
 }
+body.dark-mode .ts-dropdown .option {
+    color: #f1f5f9 !important;
+    background: #1e293b !important;
+}
+body.dark-mode .ts-dropdown .option:hover,
+body.dark-mode .ts-dropdown .option.active,
 body.dark-mode .ts-dropdown .active {
-    background-color: #334155;
-    color: #ffffff;
+    background-color: #2563eb !important;
+    color: #ffffff !important;
 }
-body.dark-mode .ts-control input {
-    color: #f8fafc;
+body.dark-mode .ts-dropdown .no-results {
+    color: #94a3b8 !important;
+    background: transparent !important;
 }
 body.dark-mode #theme-toggle-btn {
     background: #334155 !important;
