@@ -22,17 +22,26 @@ if ($res) {
     }
 }
 
-$testResult = null;
-if (isset($_GET['send']) && !empty($subs)) {
-    // Test send to the newest subscription
-    $targetRes = mysqli_query($conn, "SELECT * FROM push_subscriptions ORDER BY id DESC LIMIT 1");
-    if ($targetRes && $sub = mysqli_fetch_assoc($targetRes)) {
-        $testResult = WebPushSender::sendToSubscription($sub, "WeRide Test", "Diagnostic test message", "weride_insides.php", "diag-" . time());
+$results = [];
+if (isset($_GET['send_all'])) {
+    $q = mysqli_query($conn, "SELECT id, emp_id, endpoint, p256dh, auth FROM push_subscriptions ORDER BY id DESC");
+    while ($sub = mysqli_fetch_assoc($q)) {
+        $host = parse_url($sub['endpoint'], PHP_URL_HOST);
+        $res = WebPushSender::sendToSubscription($sub, "WeRide Test", "Test alert with logo", "weride_insides.php", "test-" . time());
+        $results[] = [
+            'id' => $sub['id'],
+            'emp_id' => $sub['emp_id'],
+            'host' => $host,
+            'success' => $res['success'],
+            'statusCode' => $res['statusCode'],
+            'error' => $res['error'],
+            'response' => $res['response']
+        ];
     }
 }
 
 echo json_encode([
     'total_subscriptions' => count($subs),
     'subscriptions' => $subs,
-    'test_result' => $testResult
+    'send_results' => $results
 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
