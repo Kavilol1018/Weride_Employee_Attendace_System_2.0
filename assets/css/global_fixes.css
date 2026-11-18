@@ -59,22 +59,25 @@ button, .btn, a, summary {
    MOBILE RESPONSIVENESS OVERRIDES & SMART CSS GRID
    ========================================================================== */
 
-/* SMART CSS GRID OVERRIDE (Replaces inline body { display: flex } in all PHP files) */
-body:not(.login-page) {
-    display: grid !important;
-    grid-template-columns: 280px 1fr !important;
-    transition: grid-template-columns 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    height: 100vh !important;
-    overflow: hidden !important;
-    margin: 0 !important;
-    padding: 0 !important;
+/* SMART CSS GRID OVERRIDE: Desktop Only (>= 1025px and not mobile mode) */
+@media (min-width: 1025px) {
+    body:not(.login-page):not(.mobile-mode) {
+        display: grid !important;
+        grid-template-columns: 280px 1fr !important;
+        transition: grid-template-columns 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        height: 100vh !important;
+        overflow: hidden !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    body.sidebar-collapsed:not(.login-page):not(.mobile-mode) {
+        grid-template-columns: 0px 1fr !important;
+    }
 }
 
-body.sidebar-collapsed:not(.login-page) {
-    grid-template-columns: 0px 1fr !important;
-}
-
-@media (max-width: 768px) {
+/* ALL PHONES, TABLETS & TOUCH DEVICES (<= 1024px OR .mobile-mode) */
+@media (max-width: 1024px) {
     body:not(.login-page) {
         display: block !important;
         width: 100% !important;
@@ -82,7 +85,38 @@ body.sidebar-collapsed:not(.login-page) {
         overflow-x: hidden !important;
         height: auto !important;
         min-height: 100vh !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
+
+    .main-content {
+        width: 100% !important;
+        max-width: 100vw !important;
+        min-width: 0 !important;
+        height: auto !important;
+        overflow-x: hidden !important;
+        padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important;
+    }
+}
+
+body.mobile-mode:not(.login-page) {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    height: auto !important;
+    min-height: 100vh !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+body.mobile-mode .main-content {
+    width: 100% !important;
+    max-width: 100vw !important;
+    min-width: 0 !important;
+    height: auto !important;
+    overflow-x: hidden !important;
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important;
 }
 
 
@@ -145,7 +179,7 @@ body.sidebar-collapsed:not(.login-page) {
    SMALL TABLET / LARGE MOBILE BREAKPOINT (≤ 768px)
    Compact layout for phones — stat cards stay 2-col, forms stack
    ========================================================================== */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
     /* Make tables horizontally scrollable if they overflow */
     .table-container, .card, .report-section {
         overflow-x: auto !important;

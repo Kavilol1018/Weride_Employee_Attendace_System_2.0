@@ -534,9 +534,9 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
         body.dark-mode .modal .bg-amber-100, body.dark-mode .modal-box .bg-amber-100 { background-color: #451a03 !important; color: #fcd34d !important; }
 
         /* ==========================================
-           NATIVE MOBILE RESPONSIVE STYLES (≤ 768px)
+           NATIVE MOBILE RESPONSIVE STYLES (≤ 1024px)
            ========================================== */
-        @media (max-width: 768px) {
+        @media (max-width: 1024px) {
             body {
                 display: block !important;
                 height: auto !important;
@@ -552,10 +552,11 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
                 min-width: 0 !important;
                 height: auto !important;
                 overflow-x: hidden !important;
+                padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important;
             }
 
             .topbar {
-                padding: 14px 16px !important;
+                padding: 12px 16px !important;
                 flex-wrap: wrap !important;
                 gap: 10px !important;
                 border-bottom: 1px solid #e2e8f0;
@@ -566,7 +567,7 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
             }
 
             .page-title {
-                font-size: 17px !important;
+                font-size: 16px !important;
                 font-weight: 700 !important;
                 flex: 1 1 auto !important;
             }
@@ -585,18 +586,18 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
             }
 
             .content {
-                padding: 16px 14px 40px 14px !important;
-                gap: 16px !important;
+                padding: 14px 12px 40px 12px !important;
+                gap: 14px !important;
                 width: 100% !important;
                 max-width: 100vw !important;
                 overflow-x: hidden !important;
             }
 
-            /* 4 Info Cards: 2x2 grid on mobile */
+            /* 4 Info Cards: 2x2 grid on mobile that auto-resizes to any screen */
             .info-cards {
                 display: grid !important;
                 grid-template-columns: repeat(2, 1fr) !important;
-                gap: 10px !important;
+                gap: 8px !important;
                 width: 100% !important;
             }
 
@@ -610,8 +611,8 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
             }
 
             .info-icon {
-                width: 32px !important;
-                height: 32px !important;
+                width: 30px !important;
+                height: 30px !important;
                 border-radius: 8px !important;
             }
 
@@ -636,42 +637,42 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
             .action-cards {
                 display: flex !important;
                 flex-direction: column !important;
-                gap: 16px !important;
+                gap: 14px !important;
                 width: 100% !important;
             }
 
             .action-card {
                 width: 100% !important;
-                padding: 24px 16px !important;
+                padding: 22px 14px !important;
                 border-radius: 16px !important;
                 box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04) !important;
             }
 
             .status-pill {
-                margin-bottom: 18px !important;
+                margin-bottom: 16px !important;
                 padding: 5px 12px !important;
                 font-size: 12px !important;
             }
 
             .timer-circle {
-                width: 64px !important;
-                height: 64px !important;
-                margin-bottom: 14px !important;
+                width: 60px !important;
+                height: 60px !important;
+                margin-bottom: 12px !important;
             }
 
             .timer-circle svg {
-                width: 26px !important;
-                height: 26px !important;
+                width: 24px !important;
+                height: 24px !important;
             }
 
             .timer-display {
-                font-size: 38px !important;
+                font-size: clamp(28px, 8vw, 44px) !important;
                 margin-bottom: 4px !important;
             }
 
             .timer-subtext {
-                font-size: 13px !important;
-                margin-bottom: 18px !important;
+                font-size: 12px !important;
+                margin-bottom: 16px !important;
             }
 
             .action-form {
@@ -681,6 +682,7 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
 
             .btn-action {
                 width: 100% !important;
+                min-height: 48px !important;
                 padding: 14px !important;
                 font-size: 15px !important;
                 border-radius: 12px !important;
@@ -693,8 +695,9 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
 
             .btn-leave {
                 width: 100% !important;
+                min-height: 46px !important;
                 justify-content: center !important;
-                padding: 14px !important;
+                padding: 12px !important;
                 font-size: 14px !important;
                 border-radius: 10px !important;
             }
@@ -711,6 +714,53 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
             .timer-display {
                 font-size: 32px !important;
             }
+        }
+
+        /* Fallback for JS-flagged mobile mode */
+        body.mobile-mode .main-content {
+            width: 100% !important;
+            max-width: 100vw !important;
+            min-width: 0 !important;
+            height: auto !important;
+            overflow-x: hidden !important;
+            padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important;
+        }
+        body.mobile-mode .info-cards {
+            display: grid !important;
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 8px !important;
+            width: 100% !important;
+        }
+        body.mobile-mode .action-cards {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 14px !important;
+            width: 100% !important;
+        }
+        body.mobile-mode .action-card {
+            width: 100% !important;
+            padding: 22px 14px !important;
+            border-radius: 16px !important;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04) !important;
+        }
+        body.mobile-mode .timer-display {
+            font-size: clamp(28px, 8vw, 44px) !important;
+            margin-bottom: 4px !important;
+        }
+        body.mobile-mode .btn-action {
+            width: 100% !important;
+            min-height: 48px !important;
+            padding: 14px !important;
+            font-size: 15px !important;
+            border-radius: 12px !important;
+        }
+        body.mobile-mode .btn-leave {
+            width: 100% !important;
+            min-height: 46px !important;
+            justify-content: center !important;
+            padding: 12px !important;
+            font-size: 14px !important;
+            border-radius: 10px !important;
         }
     </style>
     <link rel="stylesheet" href="assets/css/global_fixes.css?v=<?php echo time(); ?>">

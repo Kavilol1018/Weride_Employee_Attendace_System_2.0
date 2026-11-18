@@ -139,31 +139,54 @@ if (!function_exists('get_sidebar_notif_time')) {
         transition: opacity 0.3s;
     }
 
-    @media (max-width: 768px) {
+    @media (max-width: 1024px), (pointer: coarse) {
         .mobile-toggle {
             display: inline-flex !important;
-            align-items: center;
-            justify-content: center;
+            align-items: center !important;
+            justify-content: center !important;
+            width: 40px !important;
+            height: 40px !important;
+            border-radius: 8px !important;
+            cursor: pointer !important;
+            margin-right: 12px !important;
+            flex-shrink: 0 !important;
+            background: #f1f5f9 !important;
+            color: #0f172a !important;
+            border: 1px solid #e2e8f0 !important;
         }
 
+        body.dark-mode .mobile-toggle {
+            background: #1e293b !important;
+            color: #f8fafc !important;
+            border-color: #334155 !important;
+        }
+
+        /* NEVER show desktop toggle on mobile/tablet */
         .desktop-toggle {
             display: none !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
         }
 
+        /* Sidebar is ALWAYS an off-canvas drawer on mobile */
         .sidebar {
             position: fixed !important;
-            left: -280px !important;
+            left: -320px !important;
             top: 0 !important;
             bottom: 0 !important;
+            width: 280px !important;
+            max-width: 80vw !important;
             height: 100vh !important;
             z-index: 99999 !important;
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
             transform: translateX(0) !important;
+            box-shadow: none !important;
+            overflow-y: auto !important;
         }
 
         body.sidebar-open .sidebar {
-            transform: translateX(280px) !important;
-            box-shadow: 10px 0 30px rgba(0,0,0,0.2) !important;
+            transform: translateX(320px) !important;
+            box-shadow: 15px 0 50px rgba(0, 0, 0, 0.3) !important;
         }
 
         body.sidebar-open .sidebar-overlay {
@@ -173,24 +196,106 @@ if (!function_exists('get_sidebar_notif_time')) {
         }
 
         .topbar {
-            padding: 15px 20px !important;
-            justify-content: flex-start !important;
+            padding: 12px 16px !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            width: 100% !important;
         }
 
         .topbar .page-title {
-            font-size: 20px !important;
-            margin-left: 10px;
+            font-size: 17px !important;
+            margin-left: 0 !important;
         }
 
         .content {
-            padding: 0 15px 40px 15px !important;
+            padding: 12px 14px 40px 14px !important;
         }
+    }
+
+    /* Fallback for JS-flagged mobile mode regardless of screen resolution */
+    body.mobile-mode .mobile-toggle {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 40px !important;
+        height: 40px !important;
+        border-radius: 8px !important;
+        cursor: pointer !important;
+        margin-right: 12px !important;
+        flex-shrink: 0 !important;
+        background: #f1f5f9 !important;
+        color: #0f172a !important;
+        border: 1px solid #e2e8f0 !important;
+    }
+    body.mobile-mode.dark-mode .mobile-toggle {
+        background: #1e293b !important;
+        color: #f8fafc !important;
+        border-color: #334155 !important;
+    }
+    body.mobile-mode .desktop-toggle {
+        display: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+    }
+    body.mobile-mode .sidebar {
+        position: fixed !important;
+        left: -320px !important;
+        top: 0 !important;
+        bottom: 0 !important;
+        width: 280px !important;
+        max-width: 80vw !important;
+        height: 100vh !important;
+        z-index: 99999 !important;
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        transform: translateX(0) !important;
+        box-shadow: none !important;
+        overflow-y: auto !important;
+    }
+    body.mobile-mode.sidebar-open .sidebar {
+        transform: translateX(320px) !important;
+        box-shadow: 15px 0 50px rgba(0, 0, 0, 0.3) !important;
+    }
+    body.mobile-mode.sidebar-open .sidebar-overlay {
+        display: block !important;
+        opacity: 1 !important;
+        z-index: 99998 !important;
+    }
+    body.mobile-mode .topbar {
+        padding: 12px 16px !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        width: 100% !important;
+    }
+    body.mobile-mode .content {
+        padding: 12px 14px 40px 14px !important;
+    }
+    body.mobile-mode .mobile-bottom-nav {
+        display: flex !important;
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        height: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
+        padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+        background: #ffffff !important;
+        border-top: 1px solid #e2e8f0 !important;
+        z-index: 99990 !important;
+        justify-content: space-around !important;
+        align-items: center !important;
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06) !important;
     }
 
     /* Global Layout Constraints to prevent mobile browsers from zooming out */
     body {
-        overflow-x: hidden !important;
-        width: 100vw !important;
+        overflow-x: hidden;
+        max-width: 100%;
+    }
+    @media (max-width: 1024px) {
+        body {
+            width: 100% !important;
+            max-width: 100vw !important;
+            overflow-x: hidden !important;
+        }
     }
 
     .main-content {
@@ -445,14 +550,14 @@ if (!function_exists('get_sidebar_notif_time')) {
         display: none;
     }
     
-    @media (min-width: 769px) {
-        .sidebar {
+    @media (min-width: 1025px) {
+        body:not(.mobile-mode) .sidebar {
             transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
             z-index: 1000;
         }
         
-        .desktop-toggle {
+        body:not(.mobile-mode) .desktop-toggle {
             display: flex;
             position: absolute;
             top: 25px;
@@ -471,23 +576,23 @@ if (!function_exists('get_sidebar_notif_time')) {
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
         
-        body.dark-mode .desktop-toggle {
+        body.dark-mode:not(.mobile-mode) .desktop-toggle {
             border-color: #0f172a;
         }
         
         /* Collapsed state */
-        body.sidebar-collapsed .sidebar {
+        body.sidebar-collapsed:not(.mobile-mode) .sidebar {
             width: 0;
             padding: 0;
         }
         
-        body.sidebar-collapsed .sidebar > *:not(.desktop-toggle) {
+        body.sidebar-collapsed:not(.mobile-mode) .sidebar > *:not(.desktop-toggle) {
             display: none !important;
         }
         
-        body.sidebar-collapsed .desktop-toggle {
+        body.sidebar-collapsed:not(.mobile-mode) .desktop-toggle {
             transform: rotate(180deg);
-            right: -40px; /* Make sure the button is fully visible */
+            right: -40px;
         }
     }
 
@@ -539,6 +644,96 @@ if (!function_exists('get_sidebar_notif_time')) {
         color: #ffffff !important;
         border-color: #ef4444;
         box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
+    }
+
+    /* =======================================================
+       NATIVE MOBILE BOTTOM NAVIGATION BAR
+       ======================================================= */
+    .mobile-bottom-nav {
+        display: none;
+    }
+
+    @media (max-width: 1024px) {
+        .mobile-bottom-nav {
+            display: flex !important;
+            position: fixed !important;
+            bottom: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            height: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
+            padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+            background: #ffffff !important;
+            border-top: 1px solid #e2e8f0 !important;
+            z-index: 99990 !important;
+            justify-content: space-around !important;
+            align-items: center !important;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06) !important;
+        }
+
+        body.dark-mode .mobile-bottom-nav {
+            background: #1e293b !important;
+            border-top-color: #334155 !important;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4) !important;
+        }
+
+        .mobile-nav-link {
+            flex: 1 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            text-decoration: none !important;
+            color: #64748b !important;
+            padding: 8px 2px !important;
+            transition: color 0.15s, transform 0.1s !important;
+            -webkit-tap-highlight-color: transparent !important;
+        }
+
+        .mobile-nav-link:active {
+            transform: scale(0.92) !important;
+        }
+
+        .mobile-nav-icon {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            width: 24px !important;
+            height: 24px !important;
+            margin-bottom: 3px !important;
+        }
+
+        .mobile-nav-icon svg {
+            width: 22px !important;
+            height: 22px !important;
+        }
+
+        .mobile-nav-label {
+            font-size: 11px !important;
+            font-weight: 600 !important;
+            letter-spacing: -0.2px !important;
+            white-space: nowrap !important;
+        }
+
+        .mobile-nav-link.active {
+            color: #3b82f6 !important;
+        }
+
+        .mobile-nav-link.active .mobile-nav-icon svg {
+            stroke-width: 2.4 !important;
+        }
+
+        body.dark-mode .mobile-nav-link {
+            color: #94a3b8 !important;
+        }
+
+        body.dark-mode .mobile-nav-link.active {
+            color: #60a5fa !important;
+        }
+
+        /* Pad all content so bottom navigation never covers buttons */
+        .main-content, .content, body {
+            padding-bottom: calc(75px + env(safe-area-inset-bottom, 0px)) !important;
+        }
     }
 </style>
 
@@ -908,6 +1103,92 @@ if (!function_exists('get_sidebar_notif_time')) {
     </div>
 </aside>
 
+<!-- Native Mobile App Bottom Navigation Bar -->
+<nav class="mobile-bottom-nav no-print">
+    <?php if ($role_slug === 'employee'): ?>
+        <a href="employee_dashboard.php" class="mobile-nav-link <?php echo strpos($current_page, 'dashboard') !== false ? 'active' : ''; ?>">
+            <span class="mobile-nav-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            </span>
+            <span class="mobile-nav-label">Home</span>
+        </a>
+        <a href="employee_lunchtime_history.php" class="mobile-nav-link <?php echo strpos($current_page, 'lunchtime') !== false ? 'active' : ''; ?>">
+            <span class="mobile-nav-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </span>
+            <span class="mobile-nav-label">Lunch</span>
+        </a>
+        <a href="employee_breaktime_history.php" class="mobile-nav-link <?php echo strpos($current_page, 'breaktime') !== false ? 'active' : ''; ?>">
+            <span class="mobile-nav-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
+            </span>
+            <span class="mobile-nav-label">Breaks</span>
+        </a>
+        <a href="employee_attendance_history.php" class="mobile-nav-link <?php echo strpos($current_page, 'attendance_history') !== false ? 'active' : ''; ?>">
+            <span class="mobile-nav-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+            </span>
+            <span class="mobile-nav-label">Attendance</span>
+        </a>
+        <a href="profile.php" class="mobile-nav-link <?php echo strpos($current_page, 'profile') !== false ? 'active' : ''; ?>">
+            <span class="mobile-nav-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </span>
+            <span class="mobile-nav-label">Profile</span>
+        </a>
+    <?php elseif ($role_slug === 'gl' || $role_slug === 'tl'): ?>
+        <a href="<?php echo $role_slug; ?>_dashboard.php" class="mobile-nav-link <?php echo strpos($current_page, 'dashboard') !== false ? 'active' : ''; ?>">
+            <span class="mobile-nav-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            </span>
+            <span class="mobile-nav-label">Home</span>
+        </a>
+        <a href="<?php echo $role_slug; ?>_live_attendance.php" class="mobile-nav-link <?php echo strpos($current_page, 'live_attendance') !== false ? 'active' : ''; ?>">
+            <span class="mobile-nav-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            </span>
+            <span class="mobile-nav-label">Live</span>
+        </a>
+        <a href="<?php echo $role_slug; ?>_employees.php" class="mobile-nav-link <?php echo strpos($current_page, 'employees') !== false ? 'active' : ''; ?>">
+            <span class="mobile-nav-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </span>
+            <span class="mobile-nav-label">Team</span>
+        </a>
+        <a href="profile.php" class="mobile-nav-link <?php echo strpos($current_page, 'profile') !== false ? 'active' : ''; ?>">
+            <span class="mobile-nav-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </span>
+            <span class="mobile-nav-label">Profile</span>
+        </a>
+    <?php else: /* Admin / HR */ ?>
+        <a href="<?php echo $role_slug; ?>_dashboard.php" class="mobile-nav-link <?php echo strpos($current_page, 'dashboard') !== false ? 'active' : ''; ?>">
+            <span class="mobile-nav-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            </span>
+            <span class="mobile-nav-label">Home</span>
+        </a>
+        <a href="admin_attendance.php" class="mobile-nav-link <?php echo strpos($current_page, 'attendance') !== false ? 'active' : ''; ?>">
+            <span class="mobile-nav-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+            </span>
+            <span class="mobile-nav-label">Attendance</span>
+        </a>
+        <a href="<?php echo $role_slug; ?>_employees.php" class="mobile-nav-link <?php echo strpos($current_page, 'employees') !== false ? 'active' : ''; ?>">
+            <span class="mobile-nav-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </span>
+            <span class="mobile-nav-label">Staff</span>
+        </a>
+        <a href="profile.php" class="mobile-nav-link <?php echo strpos($current_page, 'profile') !== false ? 'active' : ''; ?>">
+            <span class="mobile-nav-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </span>
+            <span class="mobile-nav-label">Profile</span>
+        </a>
+    <?php endif; ?>
+</nav>
+
 <script>
     // ─── PORTAL DROPDOWN (Desktop only) ────────────────────────────────────────
     // position:fixed won't escape overflow-y:auto on .nav-menu, so we "portal"
@@ -971,7 +1252,7 @@ if (!function_exists('get_sidebar_notif_time')) {
 
     // Close when clicking outside the popup or sidebar
     document.addEventListener('click', function (e) {
-        if (window.innerWidth <= 768 || !activePortal) return;
+        if (window.innerWidth <= 1024 || !activePortal) return;
         const { group, dropdown } = activePortal;
         if (!group.contains(e.target) && !dropdown.contains(e.target)) {
             closePortalDropdown();
@@ -983,7 +1264,7 @@ if (!function_exists('get_sidebar_notif_time')) {
         const navMenu = document.querySelector('.nav-menu');
         if (navMenu) {
             navMenu.addEventListener('scroll', function () {
-                if (window.innerWidth > 768) closePortalDropdown();
+                if (window.innerWidth > 1024) closePortalDropdown();
             });
         }
     });
@@ -992,25 +1273,51 @@ if (!function_exists('get_sidebar_notif_time')) {
         document.body.classList.toggle('sidebar-open');
     }
 
+    // Auto Device Detection: Guarantees ANY mobile phone formats like a native app
+    function checkDeviceMode() {
+        const isMobile = window.innerWidth <= 1024 || 
+                         /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                         (navigator.maxTouchPoints > 0 && window.innerWidth <= 1200);
+        if (isMobile) {
+            document.body.classList.add('mobile-mode');
+            document.body.classList.remove('sidebar-collapsed');
+        } else {
+            document.body.classList.remove('mobile-mode');
+        }
+    }
+    checkDeviceMode();
+    window.addEventListener('resize', checkDeviceMode);
+    window.addEventListener('orientationchange', checkDeviceMode);
+
     // Inject mobile hamburger button into every topbar (avoids editing 35+ PHP files)
     document.addEventListener('DOMContentLoaded', function() {
+        checkDeviceMode();
         var topbar = document.querySelector('.topbar');
         if (topbar && !topbar.querySelector('.mobile-toggle')) {
             var btn = document.createElement('button');
             btn.className = 'mobile-toggle';
-            btn.setAttribute('aria-label', 'Open menu');
-            btn.innerHTML = '☰';
+            btn.setAttribute('aria-label', 'Open navigation menu');
+            btn.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>';
             btn.onclick = function(e) {
                 e.stopPropagation();
                 toggleMobileSidebar();
             };
             topbar.insertBefore(btn, topbar.firstChild);
         }
+
+        // Auto close mobile drawer when any link is tapped
+        document.querySelectorAll('.sidebar .nav-item, .sidebar a').forEach(function(link) {
+            link.addEventListener('click', function() {
+                if (document.body.classList.contains('sidebar-open')) {
+                    document.body.classList.remove('sidebar-open');
+                }
+            });
+        });
     });
 
     // Mobile: auto-open the active group on page load
     document.addEventListener('DOMContentLoaded', function () {
-        if (window.innerWidth <= 768) {
+        if (window.innerWidth <= 1024 || document.body.classList.contains('mobile-mode')) {
             document.querySelectorAll('.nav-dropdown .nav-item.active').forEach(item => {
                 const parentGroup = item.closest('.nav-group');
                 if (parentGroup) parentGroup.classList.add('open');
@@ -1024,6 +1331,10 @@ if (!function_exists('get_sidebar_notif_time')) {
     });
     
     function toggleDesktopSidebar() {
+        if (window.innerWidth <= 1024 || document.body.classList.contains('mobile-mode')) {
+            toggleMobileSidebar();
+            return;
+        }
         document.body.classList.toggle('sidebar-collapsed');
         const isCollapsed = document.body.classList.contains('sidebar-collapsed');
         localStorage.setItem('sidebar-collapsed', isCollapsed ? 'true' : 'false');
