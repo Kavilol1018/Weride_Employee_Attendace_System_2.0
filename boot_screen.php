@@ -1,7 +1,7 @@
 <?php
-// WeRide System Startup Cinematic Logo Zoom-In Intro (Option 1: Once per app session)
+// WeRide System Startup Cinematic Logo Zoom and Fade Out to Web (Option 1: Once per app session)
 ?>
-<!-- WeRide Cinematic Logo Zoom-In Component -->
+<!-- WeRide Logo Zoom and Fade Out Component -->
 <style id="weride-intro-style">
     #weride-intro-screen {
         position: fixed;
@@ -14,7 +14,7 @@
         height: 100dvh;
         background: #070b14;
         background: radial-gradient(circle at center, #0f1c33 0%, #070b14 75%);
-        z-index: 2147483647; /* Maximum z-index */
+        z-index: 2147483647; /* Top layer */
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -24,15 +24,11 @@
         user-select: none;
         -webkit-user-select: none;
         cursor: pointer;
-        transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-        perspective: 1000px;
+        opacity: 1;
+        transition: opacity 0.8s cubic-bezier(0.25, 1, 0.5, 1);
     }
 
-    #weride-intro-screen.intro-zooming {
-        pointer-events: none;
-    }
-
-    #weride-intro-screen.intro-exit {
+    #weride-intro-screen.intro-fading {
         opacity: 0 !important;
         pointer-events: none !important;
     }
@@ -40,13 +36,15 @@
     /* Ambient Cyan Glow */
     .weride-intro-glow {
         position: absolute;
-        width: 380px;
-        height: 380px;
+        width: 360px;
+        height: 360px;
         border-radius: 50%;
         background: radial-gradient(circle, rgba(0, 166, 214, 0.45) 0%, rgba(56, 189, 248, 0.12) 50%, transparent 70%);
-        filter: blur(50px);
+        filter: blur(48px);
         pointer-events: none;
-        transition: transform 2.2s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 2.2s ease;
+        transform: scale(1);
+        opacity: 1;
+        transition: transform 1.2s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.8s ease;
     }
 
     /* Logo Centerpiece */
@@ -58,14 +56,16 @@
         justify-content: center;
         z-index: 2;
         transform-origin: center center;
+        transform: scale(1);
+        opacity: 1;
+        transition: transform 1.1s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.9s cubic-bezier(0.25, 1, 0.5, 1);
     }
 
     .weride-intro-logo-img {
-        width: 110px;
-        height: 110px;
+        width: 120px;
+        height: 120px;
         object-fit: contain;
         filter: drop-shadow(0 0 25px rgba(0, 166, 214, 0.95)) drop-shadow(0 0 10px #38bdf8);
-        transition: filter 0.8s ease;
     }
 
     .weride-intro-brand {
@@ -81,55 +81,15 @@
         -webkit-text-fill-color: transparent;
     }
 
-    /* The Cinematic Zoom-In Flight Into the System */
-    .intro-zooming .weride-intro-logo-box {
-        animation: werideFlyThrough 2.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-    }
-
-    .intro-zooming .weride-intro-glow {
-        transform: scale(3.5);
+    /* The Smooth Zoom and Fade Out To Web */
+    .intro-fading .weride-intro-logo-box {
+        transform: scale(2.2);
         opacity: 0;
     }
 
-    @keyframes werideFlyThrough {
-        0% {
-            transform: scale(1) translateZ(0);
-            opacity: 1;
-            filter: drop-shadow(0 0 25px rgba(0, 166, 214, 0.9));
-        }
-        30% {
-            transform: scale(1.15) translateZ(50px);
-            opacity: 1;
-            filter: drop-shadow(0 0 50px rgba(56, 189, 248, 1)) drop-shadow(0 0 20px #00f2fe);
-        }
-        65% {
-            transform: scale(3.5) translateZ(250px);
-            opacity: 0.9;
-            filter: blur(2px) drop-shadow(0 0 65px rgba(0, 166, 214, 1));
-        }
-        100% {
-            transform: scale(12) translateZ(500px);
-            opacity: 0;
-            filter: blur(14px) drop-shadow(0 0 90px rgba(56, 189, 248, 1));
-        }
-    }
-
-    /* Subtle touch prompt for iOS cold start */
-    .weride-intro-prompt {
-        position: absolute;
-        bottom: max(32px, env(safe-area-inset-bottom, 24px));
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: 1.2px;
-        color: rgba(56, 189, 248, 0.85);
-        text-transform: uppercase;
-        animation: weridePromptPulse 1.8s infinite ease-in-out;
-    }
-
-    @keyframes weridePromptPulse {
-        0%, 100% { opacity: 0.5; transform: scale(1); }
-        50% { opacity: 1; transform: scale(1.04); }
+    .intro-fading .weride-intro-glow {
+        transform: scale(2.5);
+        opacity: 0;
     }
 </style>
 
@@ -139,12 +99,12 @@
     const hasBooted = sessionStorage.getItem('weride_session_booted');
 
     if (hasBooted && !isTest) {
-        return; // Already booted, do nothing
+        return; // Already booted, do nothing!
     }
 
     sessionStorage.setItem('weride_session_booted', '1');
 
-    // Pre-create Audio
+    // Setup global persistent audio
     let audio = window.werideBootAudio;
     if (!audio) {
         audio = new Audio('assets/audio/weride_boot.mp3');
@@ -152,7 +112,7 @@
         window.werideBootAudio = audio;
     }
 
-    function createAndShowIntro() {
+    function createAndRunIntro() {
         if (document.getElementById('weride-intro-screen')) return;
 
         const introScreen = document.createElement('div');
@@ -163,65 +123,57 @@
                 <img src="pic/logo_only.png" alt="WeRide" class="weride-intro-logo-img">
                 <div class="weride-intro-brand">WeRide</div>
             </div>
-            <div class="weride-intro-prompt" id="weride-intro-prompt">Tap to Enter</div>
         `;
 
         (document.body || document.documentElement).appendChild(introScreen);
 
         let transitionTriggered = false;
 
-        function runZoomTransition() {
+        function runZoomAndFadeOut() {
             if (transitionTriggered) return;
             transitionTriggered = true;
 
-            // Start sound
+            // Start sound (keeps playing smoothly into the web page)
             if (audio) {
                 audio.play().catch(() => {});
             }
 
-            // Hide prompt
-            const prompt = document.getElementById('weride-intro-prompt');
-            if (prompt) prompt.style.display = 'none';
+            // Smooth zoom and fade out to web
+            introScreen.classList.add('intro-fading');
 
-            // Start cinematic fly-through
-            introScreen.classList.add('intro-zooming');
-
-            // At peak zoom (2.2s), dissolve backdrop into the system
             setTimeout(() => {
-                introScreen.classList.add('intro-exit');
-                setTimeout(() => {
-                    introScreen.remove();
-                }, 600);
-            }, 2200);
+                introScreen.remove();
+            }, 1000);
         }
 
-        // Tap listener anywhere on the screen immediately triggers zoom + audio
-        introScreen.addEventListener('click', runZoomTransition, { once: true });
-        introScreen.addEventListener('pointerdown', runZoomTransition, { once: true });
-        introScreen.addEventListener('touchstart', runZoomTransition, { once: true });
+        // Tap/click anywhere on screen triggers immediate zoom & fade out + sound
+        introScreen.addEventListener('click', runZoomAndFadeOut, { once: true });
+        introScreen.addEventListener('pointerdown', runZoomAndFadeOut, { once: true });
+        introScreen.addEventListener('touchstart', runZoomAndFadeOut, { once: true });
 
-        // Attempt automatic playback (e.g. desktop, Android, or post-login navigation)
+        // Auto-trigger sound and zoom-fade into the web after a brief moment
         const p = audio.play();
         if (p !== undefined) {
             p.then(() => {
-                // Autoplay succeeded! Trigger zoom automatically
-                setTimeout(runZoomTransition, 300);
+                // Audio autoplay permitted: zoom and fade into web after 600ms
+                setTimeout(runZoomAndFadeOut, 600);
             }).catch(() => {
-                // Autoplay blocked by iOS on cold start:
-                // Show prompt; will instantly zoom + play on first tap!
-                // Fallback auto-transition after 2.8s if no tap
+                // If iOS blocked unprompted sound:
+                // Auto-fade into web after 1.8s if user hasn't tapped yet
                 setTimeout(() => {
-                    if (!transitionTriggered) runZoomTransition();
-                }, 2800);
+                    if (!transitionTriggered) runZoomAndFadeOut();
+                }, 1800);
             });
+        } else {
+            setTimeout(runZoomAndFadeOut, 600);
         }
     }
 
-    // Attach immediately without waiting for DOMContentLoaded
+    // Attach immediately without waiting
     if (document.body || document.documentElement) {
-        createAndShowIntro();
+        createAndRunIntro();
     } else {
-        document.addEventListener('DOMContentLoaded', createAndShowIntro);
+        document.addEventListener('DOMContentLoaded', createAndRunIntro);
     }
 })();
 </script>
