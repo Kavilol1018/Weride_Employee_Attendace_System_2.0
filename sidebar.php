@@ -178,14 +178,42 @@ if (!function_exists('get_sidebar_notif_time')) {
             bottom: 0 !important;
             width: 280px !important;
             max-width: 80vw !important;
-            height: 100vh !important;
+            height: 100% !important;
+            height: 100dvh !important;
             z-index: 99999 !important;
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
             transform: translateX(0) !important;
             box-shadow: none !important;
             overflow-y: auto !important;
             -webkit-overflow-scrolling: touch !important;
+            padding-top: max(20px, calc(16px + env(safe-area-inset-top, 0px))) !important;
             padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px)) !important;
+            box-sizing: border-box !important;
+        }
+
+        .mobile-sidebar-close {
+            display: flex !important;
+            align-items: center;
+            justify-content: center;
+            position: absolute;
+            top: 10px;
+            right: 14px;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #f1f5f9;
+            color: #475569;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            border: 1px solid #e2e8f0;
+            z-index: 10;
+        }
+
+        body.dark-mode .mobile-sidebar-close {
+            background: #1e293b !important;
+            color: #cbd5e1 !important;
+            border-color: #334155 !important;
         }
 
         body.sidebar-open .sidebar {
@@ -252,7 +280,8 @@ if (!function_exists('get_sidebar_notif_time')) {
         }
     }
 
-    .mobile-topbar-logout {
+    .mobile-topbar-logout,
+    .mobile-sidebar-close {
         display: none;
     }
 
@@ -288,12 +317,17 @@ if (!function_exists('get_sidebar_notif_time')) {
         bottom: 0 !important;
         width: 280px !important;
         max-width: 80vw !important;
-        height: 100vh !important;
+        height: 100% !important;
+        height: 100dvh !important;
         z-index: 99999 !important;
         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
         transform: translateX(0) !important;
         box-shadow: none !important;
         overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        padding-top: max(20px, calc(16px + env(safe-area-inset-top, 0px))) !important;
+        padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px)) !important;
+        box-sizing: border-box !important;
     }
     body.mobile-mode.sidebar-open .sidebar {
         transform: translateX(320px) !important;
@@ -793,12 +827,15 @@ if (!function_exists('get_sidebar_notif_time')) {
             <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
         </svg>
     </div>
-    <a href="<?php echo $role_slug; ?>_dashboard.php" style="text-decoration: none; color: inherit;">
-        <div class="sidebar-header" style="text-align: center; padding: 25px 0;">
-            <img src="pic/WeRide_logo.png" alt="WeRide Logo"
-                style="max-height: 45px; width: auto; object-fit: contain;">
-        </div>
-    </a>
+    <div style="position: relative; width: 100%;">
+        <div class="mobile-sidebar-close" onclick="toggleMobileSidebar()" title="Close Menu">✕</div>
+        <a href="<?php echo $role_slug; ?>_dashboard.php" style="text-decoration: none; color: inherit; display: block;">
+            <div class="sidebar-header" style="text-align: center; padding: 15px 0 20px 0;">
+                <img src="pic/WeRide_logo.png" alt="WeRide Logo"
+                    style="max-height: 45px; width: auto; object-fit: contain;">
+            </div>
+        </a>
+    </div>
 
     <ul class="nav-menu">
         <!-- Dashboard -->

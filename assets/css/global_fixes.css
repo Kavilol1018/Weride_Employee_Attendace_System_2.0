@@ -679,7 +679,8 @@ body.dark-mode .top-scrollbar-wrapper::-webkit-scrollbar-thumb:hover {
     .ci-topbar, 
     header.topbar, 
     .main-content > .header, 
-    .main-content > .page-header {
+    .main-content > .page-header,
+    .sidebar {
         padding-top: max(20px, calc(16px + env(safe-area-inset-top, 0px))) !important;
         box-sizing: border-box !important;
     }
