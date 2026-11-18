@@ -356,7 +356,7 @@ $text_color_map = [
                         <th class="sticky-col-3 sortable" rowspan="2" onclick="sortTable(2)" title="Click to sort">Employment Type &#9662;</th>
                         <th class="sticky-col-4 sortable" rowspan="2" onclick="sortTable(3)" title="Click to sort">Team Lead &#9662;</th>
                         
-                        <th colspan="11" class="summary-header">SUMMARY OF THE MONTH</th>
+                        <th colspan="12" class="summary-header">SUMMARY OF THE MONTH</th>
                         
                         <?php for($d=1; $d<=$days_in_month; $d++): 
                             $day_name = date('D', mktime(0,0,0, $selected_month, $d, $selected_year));
