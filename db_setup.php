@@ -100,6 +100,12 @@ $sql_tokens = "CREATE TABLE IF NOT EXISTS `remember_tokens` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;";
 mysqli_query($conn, $sql_tokens);
 
+// 3.67 Ensure index on employee_notifications for fast queries
+$idx_res = @mysqli_query($conn, "SHOW INDEX FROM `employee_notifications` WHERE Key_name = 'idx_emp_read'");
+if ($idx_res && mysqli_num_rows($idx_res) === 0) {
+    @mysqli_query($conn, "ALTER TABLE `employee_notifications` ADD INDEX `idx_emp_read` (`emp_id`, `is_read`, `created_at`)");
+}
+
 // 3.7 Create WeRide Insides (Community Feed) tables if missing
 $sql_c_posts = "CREATE TABLE IF NOT EXISTS `community_posts` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,

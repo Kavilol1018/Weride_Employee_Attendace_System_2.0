@@ -26,9 +26,6 @@ mysqli_query($conn, "SET time_zone = '+08:00'");
 
 
 
-// Auto Schema Migration Setup
-include_once __DIR__ . '/db_setup.php';
-
 // Ensure session is active with 30-day lifetime
 if (session_status() === PHP_SESSION_NONE) {
     $cookie_lifetime = 60 * 60 * 24 * 30; // 30 days
@@ -44,6 +41,12 @@ if (session_status() === PHP_SESSION_NONE) {
         ]);
     }
     session_start();
+}
+
+// Auto Schema Migration Setup (run once per session to maintain high page loading speed)
+if (empty($_SESSION['db_setup_done'])) {
+    include_once __DIR__ . '/db_setup.php';
+    $_SESSION['db_setup_done'] = true;
 }
 
 // Check for Persistent "Stay Logged In" Cookie if session is empty

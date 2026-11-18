@@ -827,33 +827,7 @@ $user_initials = get_initials($current_user_name);
             color: var(--ci-accent);
         }
 
-        .ci-refresh-btn {
-            background: var(--ci-card);
-            border: 1px solid var(--ci-border);
-            color: var(--ci-text);
-            height: 38px;
-            padding: 0 14px;
-            border-radius: 10px;
-            display: inline-flex;
-            align-items: center;
-            gap: 7px;
-            font-size: 13px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            margin-right: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-            white-space: nowrap;
-        }
-
-        .ci-refresh-btn:hover {
-            background: var(--ci-accent-soft);
-            border-color: var(--ci-accent);
-            color: var(--ci-accent);
-            transform: translateY(-1px);
-        }
-
-        .ci-refresh-btn.spinning .ci-refresh-icon {
+        .ci-notif-btn.spinning svg {
             animation: ciSpin 0.7s linear infinite;
         }
 
@@ -879,24 +853,7 @@ $user_initials = get_initials($current_user_name);
             justify-content: center;
             border: 2px solid var(--ci-card);
             box-shadow: 0 2px 6px rgba(239, 68, 68, 0.45);
-            animation: pulseBadge 2s infinite ease-in-out;
             z-index: 2;
-        }
-
-        @keyframes pulseBadge {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.15); }
-        }
-
-        @media (max-width: 600px) {
-            .ci-refresh-btn {
-                padding: 0 10px;
-                width: 38px;
-                justify-content: center;
-            }
-            .ci-refresh-text {
-                display: none;
-            }
         }
 
         .ci-notif-dropdown {
@@ -1752,12 +1709,11 @@ $user_initials = get_initials($current_user_name);
                 <h1>WeRide Insides</h1>
             </div>
             <div class="ci-topbar-right">
-                <!-- REFRESH FEED BUTTON -->
-                <button type="button" class="ci-refresh-btn" id="feed-refresh-btn" onclick="refreshFeed()" title="Refresh WeRide Insides Feed">
-                    <svg class="ci-refresh-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.19"/>
+                <!-- REFRESH FEED BUTTON (Standard topbar icon button) -->
+                <button type="button" class="ci-notif-btn" id="feed-refresh-btn" onclick="refreshFeed(this)" title="Refresh Feed" aria-label="Refresh">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
                     </svg>
-                    <span class="ci-refresh-text">Refresh</span>
                 </button>
 
                 <!-- NOTIFICATION BELL -->
@@ -1910,10 +1866,6 @@ $user_initials = get_initials($current_user_name);
                         <button class="ci-filter-pill" onclick="filterPosts('photo', this)">Photos</button>
                         <button class="ci-filter-pill" onclick="filterPosts('video', this)">Videos</button>
                         <button class="ci-filter-pill" onclick="filterPosts('none', this)">Tweets</button>
-                        <button type="button" class="ci-filter-pill ci-filter-refresh" onclick="refreshFeed()" title="Refresh Feed" style="margin-left: auto; display: inline-flex; align-items: center; gap: 5px; color: var(--ci-accent); font-weight: 800;">
-                            <span class="feed-filter-spin-icon" style="display: inline-block;">🔄</span>
-                            <span>Refresh Feed</span>
-                        </button>
                     </div>
 
                     <!-- POSTS LIST -->
@@ -2673,19 +2625,13 @@ $user_initials = get_initials($current_user_name);
         // ====================================================================
         // REFRESH FEED HELPER
         // ====================================================================
-        function refreshFeed() {
-            const btn = document.getElementById('feed-refresh-btn');
+        function refreshFeed(btn) {
+            if (!btn) btn = document.getElementById('feed-refresh-btn');
             if (btn) btn.classList.add('spinning');
-
-            const filterIcon = document.querySelector('.feed-filter-spin-icon');
-            if (filterIcon) {
-                filterIcon.style.transition = 'transform 0.5s ease';
-                filterIcon.style.transform = 'rotate(360deg)';
-            }
 
             setTimeout(() => {
                 window.location.reload();
-            }, 180);
+            }, 150);
         }
 
         // ====================================================================
