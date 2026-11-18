@@ -169,7 +169,7 @@
                 <div class="weride-intro-brand">WeRide</div>
             </div>
             <div class="weride-intro-prompt" id="weride-intro-prompt">
-                <span>🔊 Tap to Enter</span>
+                <span>Tap to Enter</span>
             </div>
         `;
 
