@@ -148,7 +148,7 @@
     // Setup global persistent audio
     let audio = window.werideBootAudio;
     if (!audio) {
-        audio = new Audio('assets/audio/weride_boot.mp3');
+        audio = new Audio('/assets/audio/weride_boot.mp3');
         audio.preload = 'auto';
         window.werideBootAudio = audio;
     }
@@ -165,7 +165,7 @@
         introScreen.innerHTML = `
             <div class="weride-intro-glow"></div>
             <div class="weride-intro-logo-box">
-                <img src="pic/logo_only.png" alt="WeRide" class="weride-intro-logo-img">
+                <img src="/pic/logo_only.png" alt="WeRide" class="weride-intro-logo-img">
                 <div class="weride-intro-brand">WeRide</div>
             </div>
             <div class="weride-intro-prompt" id="weride-intro-prompt">

@@ -544,10 +544,7 @@ if ($emp_dropdown_res) {
                                     <td>
                                         <?php if (!empty($row['mc_attachment'])): ?>
                                             <?php 
-                                                $mc_url = $row['mc_attachment'];
-                                                if (!empty($mc_url) && strpos($mc_url, 'http') !== 0) {
-                                                    $mc_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . '/' . ltrim($mc_url, '/');
-                                                }
+                                                $mc_url = '/' . ltrim($row['mc_attachment'], '/\\');
                                             ?>
                                             <a href="<?php echo htmlspecialchars($mc_url); ?>" target="_blank" style="background: #eff6ff; color:#3b82f6; text-decoration:none; padding: 4px 10px; border-radius: 6px; font-size:12px; font-weight:700;">View File</a>
                                         <?php else: ?>

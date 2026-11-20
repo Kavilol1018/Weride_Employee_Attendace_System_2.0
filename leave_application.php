@@ -507,10 +507,7 @@ if ($role_slug === 'employee') {
                         <td>
                             <?php if (!empty($row['mc_attachment'])): ?>
                                 <?php 
-                                    $mc_url = $row['mc_attachment'];
-                                    if (!empty($mc_url) && strpos($mc_url, 'http') !== 0) {
-                                        $mc_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . '/' . ltrim($mc_url, '/');
-                                    }
+                                    $mc_url = '/' . ltrim($row['mc_attachment'], '/\\');
                                 ?>
                                 <a href="<?= htmlspecialchars($mc_url) ?>" target="_blank" class="mc-link">View File</a>
                             <?php else: ?>

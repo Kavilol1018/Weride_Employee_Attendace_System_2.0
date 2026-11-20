@@ -47,6 +47,16 @@ function get_friendly_name($full_name) {
     return ucwords(strtolower($clean));
 }
 
+// Helper: Ensure valid media URL (verifies physical existence & returns root-relative URL)
+function get_valid_media_url($path) {
+    if (empty($path)) return '';
+    $clean = ltrim($path, '/\\');
+    if (file_exists($clean) || file_exists(__DIR__ . '/' . $clean)) {
+        return '/' . $clean;
+    }
+    return '';
+}
+
 // ============================================================================
 // EMPLOYEE MENTIONS MAP & DATA PREPARATION
 // ============================================================================
@@ -104,7 +114,7 @@ if ($emp_list_res) {
             'fullName' => $raw_name,
             'role' => $role_formatted,
             'initials' => $initials,
-            'pic' => (!empty($e['profile_picture']) && file_exists($e['profile_picture'])) ? $e['profile_picture'] : '',
+            'pic' => get_valid_media_url($e['profile_picture'] ?? ''),
             'searchKey' => strtolower($e['emp_id'] . ' ' . $raw_name . ' ' . $friendly . ' ' . $role_formatted . ' ' . ($nickname_map[$eid] ?? ''))
         ];
     }
@@ -392,7 +402,7 @@ if ($action) {
                     'id' => $new_id,
                     'name' => htmlspecialchars($current_user_name),
                     'initials' => get_initials($current_user_name),
-                    'pic' => (!empty($current_user_pic) && file_exists($current_user_pic)) ? $current_user_pic : '',
+                    'pic' => get_valid_media_url($current_user_pic),
                     'content' => format_post_content($comment, $mention_map),
                     'time' => 'Just now',
                     'can_delete' => true
@@ -1821,8 +1831,8 @@ $user_initials = get_initials($current_user_name);
                     <span id="topbar-online-text"><?php echo $online_count; ?> Online</span>
                 </div>
                 <a href="profile.php" class="ci-avatar" title="<?php echo htmlspecialchars($current_user_name); ?>" style="text-decoration:none;">
-                    <?php if (!empty($current_user_pic) && file_exists($current_user_pic)): ?>
-                        <img src="<?php echo htmlspecialchars($current_user_pic); ?>" alt="Profile">
+                    <?php $c_pic = get_valid_media_url($current_user_pic); if ($c_pic): ?>
+                        <img src="<?php echo htmlspecialchars($c_pic); ?>" alt="Profile">
                     <?php else: ?>
                         <?php echo $user_initials; ?>
                     <?php endif; ?>
@@ -1886,8 +1896,8 @@ $user_initials = get_initials($current_user_name);
                     <div class="ci-composer">
                         <div class="ci-composer-head">
                             <div class="ci-avatar">
-                                <?php if (!empty($current_user_pic) && file_exists($current_user_pic)): ?>
-                                    <img src="<?php echo htmlspecialchars($current_user_pic); ?>" alt="Profile">
+                                <?php $c_pic = get_valid_media_url($current_user_pic); if ($c_pic): ?>
+                                    <img src="<?php echo htmlspecialchars($c_pic); ?>" alt="Profile">
                                 <?php else: ?>
                                     <?php echo $user_initials; ?>
                                 <?php endif; ?>
@@ -1954,8 +1964,8 @@ $user_initials = get_initials($current_user_name);
                                 <article class="ci-post-card" id="post-card-<?php echo $post['id']; ?>" data-media-type="<?php echo $post['media_type']; ?>">
                                     <div class="ci-post-header">
                                         <div class="ci-avatar">
-                                            <?php if (!empty($post['author_pic']) && file_exists($post['author_pic'])): ?>
-                                                <img src="<?php echo htmlspecialchars($post['author_pic']); ?>" alt="Profile">
+                                            <?php $author_pic_url = get_valid_media_url($post['author_pic']); if ($author_pic_url): ?>
+                                                <img src="<?php echo htmlspecialchars($author_pic_url); ?>" alt="Profile">
                                             <?php else: ?>
                                                 <?php echo $post_initials; ?>
                                             <?php endif; ?>
@@ -1981,18 +1991,20 @@ $user_initials = get_initials($current_user_name);
                                         <div class="ci-post-content"><?php echo format_post_content($post['content'], $mention_map); ?></div>
                                     <?php endif; ?>
 
-                                    <?php if ($post['media_type'] === 'photo' && !empty($post['media_url'])): ?>
-                                        <div class="ci-post-media" onclick="openLightbox('<?php echo htmlspecialchars($post['media_url']); ?>', '<?php echo htmlspecialchars(addslashes($post['author_name'])); ?>')">
-                                            <img src="<?php echo htmlspecialchars($post['media_url']); ?>" alt="Photo post" loading="lazy" onerror="this.onerror=null; this.closest('.ci-post-media').style.display='none';">
+                                    <?php 
+                                    $post_media_valid = get_valid_media_url($post['media_url']);
+                                    if ($post['media_type'] === 'photo' && $post_media_valid): ?>
+                                        <div class="ci-post-media" onclick="openLightbox('<?php echo htmlspecialchars($post_media_valid); ?>', '<?php echo htmlspecialchars(addslashes($post['author_name'])); ?>')">
+                                            <img src="<?php echo htmlspecialchars($post_media_valid); ?>" alt="Photo post" loading="lazy">
                                             <div class="ci-media-zoom-hint">
                                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
                                                 <span>View Full Size</span>
                                             </div>
                                         </div>
-                                    <?php elseif ($post['media_type'] === 'video' && !empty($post['media_url'])): ?>
+                                    <?php elseif ($post['media_type'] === 'video' && $post_media_valid): ?>
                                         <div class="ci-post-media">
                                             <video controls playsinline preload="metadata">
-                                                <source src="<?php echo htmlspecialchars($post['media_url']); ?>">
+                                                <source src="<?php echo htmlspecialchars($post_media_valid); ?>">
                                                 Your browser does not support the video tag.
                                             </video>
                                         </div>
@@ -2024,8 +2036,8 @@ $user_initials = get_initials($current_user_name);
                                             ?>
                                                 <div class="ci-comment-item" id="comment-item-<?php echo $c['id']; ?>">
                                                     <div class="ci-avatar" style="width:28px;height:28px;font-size:10px;">
-                                                        <?php if (!empty($c['author_pic']) && file_exists($c['author_pic'])): ?>
-                                                            <img src="<?php echo htmlspecialchars($c['author_pic']); ?>" alt="Profile">
+                                                        <?php $c_pic_url = get_valid_media_url($c['author_pic']); if ($c_pic_url): ?>
+                                                            <img src="<?php echo htmlspecialchars($c_pic_url); ?>" alt="Profile">
                                                         <?php else: ?>
                                                             <?php echo get_initials($c_name); ?>
                                                         <?php endif; ?>

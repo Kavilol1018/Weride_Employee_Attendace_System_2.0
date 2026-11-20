@@ -215,8 +215,11 @@ $today_short_breaks = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as
                 Auto-refreshes every 30s
             </div>
                 <a href="profile.php" class="avatar" style="text-decoration: none;" title="My Profile">
-                    <?php if (!empty($_SESSION['profile_picture']) && file_exists($_SESSION['profile_picture'])): ?>
-                        <img src="<?php echo htmlspecialchars($_SESSION['profile_picture']); ?>" alt="Profile">
+                    <?php 
+                    $admin_pic_clean = ltrim($_SESSION['profile_picture'] ?? '', '/\\');
+                    $admin_has_pic = !empty($admin_pic_clean) && (file_exists($admin_pic_clean) || file_exists(__DIR__ . '/' . $admin_pic_clean));
+                    if ($admin_has_pic): ?>
+                        <img src="<?php echo htmlspecialchars('/' . $admin_pic_clean); ?>" alt="Profile" onerror="this.style.display='none';">
                     <?php else: ?>
                         <?php echo strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1)); ?>
                     <?php endif; ?>

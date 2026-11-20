@@ -821,8 +821,11 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
                     </form>
                 <?php endif; ?>
                 <a href="profile.php" class="avatar" style="text-decoration: none;" title="My Profile">
-                    <?php if (!empty($emp_data['profile_picture']) && file_exists($emp_data['profile_picture'])): ?>
-                        <img src="<?php echo htmlspecialchars($emp_data['profile_picture']); ?>" alt="Profile">
+                    <?php 
+                    $emp_pic_clean = ltrim($emp_data['profile_picture'] ?? '', '/\\');
+                    $emp_has_pic = !empty($emp_pic_clean) && (file_exists($emp_pic_clean) || file_exists(__DIR__ . '/' . $emp_pic_clean));
+                    if ($emp_has_pic): ?>
+                        <img src="<?php echo htmlspecialchars('/' . $emp_pic_clean); ?>" alt="Profile" onerror="this.style.display='none';">
                     <?php else: ?>
                         <?php echo strtoupper(substr($employee_name, 0, 1)); ?>
                     <?php endif; ?>

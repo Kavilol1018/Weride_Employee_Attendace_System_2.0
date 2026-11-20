@@ -583,8 +583,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                     <!-- Profile Picture Upload & Framing -->
                     <?php
-                    $saved_profile_pic = !empty($user_data['profile_picture']) ? $user_data['profile_picture'] : '';
-                    $has_pic = !empty($saved_profile_pic);
+                    $raw_pic = ltrim($user_data['profile_picture'] ?? '', '/\\');
+                    $has_pic = !empty($raw_pic) && (file_exists($raw_pic) || file_exists(__DIR__ . '/' . $raw_pic));
+                    $saved_profile_pic = $has_pic ? ('/' . $raw_pic) : '';
                     ?>
                     <div class="profile-pic-container" style="display: flex; align-items: center; gap: 20px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid #e2e8f0;">
                         <div style="position: relative;">

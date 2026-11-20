@@ -715,8 +715,11 @@ $vio_data_values = array_values($vio_data);
                     </form>
                 <?php endif; ?>
                 <a href="profile.php" class="avatar" style="text-decoration: none;" title="My Profile">
-                    <?php if (!empty($emp_data['profile_picture']) && file_exists($emp_data['profile_picture'])): ?>
-                        <img src="<?php echo htmlspecialchars($emp_data['profile_picture']); ?>" alt="Profile">
+                    <?php 
+                    $tl_pic_clean = ltrim($emp_data['profile_picture'] ?? '', '/\\');
+                    $tl_has_pic = !empty($tl_pic_clean) && (file_exists($tl_pic_clean) || file_exists(__DIR__ . '/' . $tl_pic_clean));
+                    if ($tl_has_pic): ?>
+                        <img src="<?php echo htmlspecialchars('/' . $tl_pic_clean); ?>" alt="Profile" onerror="this.style.display='none';">
                     <?php else: ?>
                         <?php echo strtoupper(substr($employee_name, 0, 1)); ?>
                     <?php endif; ?>
