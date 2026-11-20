@@ -182,7 +182,16 @@ if ($action) {
         $media_url = null;
 
         // Process file upload if provided
-        if (isset($_FILES['media']) && $_FILES['media']['error'] === UPLOAD_ERR_OK) {
+        if (isset($_FILES['media']) && $_FILES['media']['error'] !== UPLOAD_ERR_NO_FILE) {
+            $upload_err = $_FILES['media']['error'];
+            if ($upload_err === UPLOAD_ERR_INI_SIZE || $upload_err === UPLOAD_ERR_FORM_SIZE) {
+                echo json_encode(['success' => false, 'message' => 'The attached file exceeds the server upload limit (Max 20MB). Please choose a shorter or smaller clip.']);
+                exit();
+            } elseif ($upload_err !== UPLOAD_ERR_OK) {
+                echo json_encode(['success' => false, 'message' => 'Media upload failed (Error code: ' . $upload_err . '). Please try again.']);
+                exit();
+            }
+
             $file = $_FILES['media'];
             $file_name = $file['name'];
             $file_tmp  = $file['tmp_name'];
@@ -1974,7 +1983,7 @@ $user_initials = get_initials($current_user_name);
 
                                     <?php if ($post['media_type'] === 'photo' && !empty($post['media_url'])): ?>
                                         <div class="ci-post-media" onclick="openLightbox('<?php echo htmlspecialchars($post['media_url']); ?>', '<?php echo htmlspecialchars(addslashes($post['author_name'])); ?>')">
-                                            <img src="<?php echo htmlspecialchars($post['media_url']); ?>" alt="Photo post" loading="lazy">
+                                            <img src="<?php echo htmlspecialchars($post['media_url']); ?>" alt="Photo post" loading="lazy" onerror="this.onerror=null; this.closest('.ci-post-media').style.display='none';">
                                             <div class="ci-media-zoom-hint">
                                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
                                                 <span>View Full Size</span>
@@ -2271,7 +2280,7 @@ $user_initials = get_initials($current_user_name);
             }
 
             const xhr = new XMLHttpRequest();
-            xhr.open('POST', window.location.pathname + '?action=create_post', true);
+            xhr.open('POST', 'weride_insides.php?action=create_post', true);
 
             xhr.upload.onprogress = (e) => {
                 if (e.lengthComputable) {
