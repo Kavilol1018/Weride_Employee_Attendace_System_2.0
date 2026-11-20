@@ -8,7 +8,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'tl') {
 
 $current_employee_id = $_SESSION['emp_id']; 
 
-$emp_query = mysqli_query($conn, "SELECT employment_type, lunch_window, name, annual_leave_balance, sick_leave_balance, shift_hour, profile_picture FROM employees WHERE emp_id = '$current_employee_id'");
+$emp_query = mysqli_query($conn, "SELECT employment_type, lunch_window, name, annual_leave_balance, sick_leave_balance, shift_hour, profile_picture, welabel_id FROM employees WHERE emp_id = '$current_employee_id'");
 $emp_data = mysqli_fetch_assoc($emp_query);
 $employment_type = $emp_data['employment_type'] ?? 'full_time';
 $lunch_window = $emp_data['lunch_window'] ?? '12:00-13:00';
@@ -42,9 +42,6 @@ if ($raw_remote === '127.0.0.1' || $raw_remote === '::1') {
     $is_valid_ip = true;
 }
 
-// DEVICE VALIDATION
-$user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
-$is_mobile = preg_match("/(android|avantgo|blackberry|bolt|boost|cricket|docomo|fone|hiptop|mini|mobi|palm|phone|pie|tablet|up\.browser|up\.link|webos|wos)/i", $user_agent);
 
 // VALIDATE TIME (LUNCH WINDOW)
 date_default_timezone_set('Asia/Kuala_Lumpur');
@@ -77,9 +74,18 @@ $is_early_clockout = (date('H:i') < $shift_end);
 $leave_check_sql = "SELECT id FROM leave_requests WHERE emp_id = '$current_employee_id' AND status = 'approved' AND start_date <= CURDATE() AND end_date >= CURDATE() AND leave_type IN ('Half-Day Leave', 'Half-Day Leave (Before Lunch)', 'Half-Day Leave (After Lunch)', 'Emergency Leave')";
 $has_early_leave = mysqli_num_rows(mysqli_query($conn, $leave_check_sql)) > 0;
 
+
 // DEVICE VALIDATION
 $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
 $is_mobile = preg_match("/(android|avantgo|blackberry|bolt|boost|cricket|docomo|fone|hiptop|mini|mobi|palm|phone|pie|tablet|up\.browser|up\.link|webos|wos)/i", $user_agent);
+
+// ATTENDANCE & DEVICE RESTRICTION EXEMPTION
+$exempt_welabel_ids = ['KL_Zuhan_Lee@welabel.ai'];
+$exempt_emp_ids = ['JSMY031'];
+if (in_array($current_employee_id, $exempt_emp_ids) || in_array($emp_data['welabel_id'] ?? '', $exempt_welabel_ids)) {
+    $is_valid_ip = true;
+    $is_mobile = false;
+}
 
 // POST ACTIONS
 if ($_SERVER["REQUEST_METHOD"] == "POST") {

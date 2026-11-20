@@ -8,7 +8,7 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['employee', 'q
 
 $current_employee_id = $_SESSION['emp_id']; 
 
-$emp_query = mysqli_query($conn, "SELECT employment_type, lunch_window, name, annual_leave_balance, sick_leave_balance, shift_hour, group_leader_id, profile_picture FROM employees WHERE emp_id = '$current_employee_id'");
+$emp_query = mysqli_query($conn, "SELECT employment_type, lunch_window, name, annual_leave_balance, sick_leave_balance, shift_hour, group_leader_id, profile_picture, welabel_id FROM employees WHERE emp_id = '$current_employee_id'");
 $emp_data = mysqli_fetch_assoc($emp_query);
 $employment_type = $emp_data['employment_type'] ?? 'full_time';
 $lunch_window = $emp_data['lunch_window'] ?? '12:00-13:00';
@@ -86,6 +86,14 @@ $has_early_leave = mysqli_num_rows(mysqli_query($conn, $leave_check_sql)) > 0;
 // DEVICE VALIDATION
 $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
 $is_mobile = preg_match("/(android|avantgo|blackberry|bolt|boost|cricket|docomo|fone|hiptop|mini|mobi|palm|phone|pie|tablet|up\.browser|up\.link|webos|wos)/i", $user_agent);
+
+// ATTENDANCE & DEVICE RESTRICTION EXEMPTION (Unrestricted Clock In / Clock Out & Breaks)
+$exempt_welabel_ids = ['KL_Zuhan_Lee@welabel.ai'];
+$exempt_emp_ids = ['JSMY031'];
+if (in_array($current_employee_id, $exempt_emp_ids) || in_array($emp_data['welabel_id'] ?? '', $exempt_welabel_ids)) {
+    $is_valid_ip = true;
+    $is_mobile = false;
+}
 
 
 // POST ACTIONS
