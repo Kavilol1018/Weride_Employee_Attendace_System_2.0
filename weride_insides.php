@@ -2337,7 +2337,7 @@ $user_initials = get_initials($current_user_name);
             formData.append('action', 'toggle_like');
             formData.append('post_id', postId);
 
-            fetch(window.location.pathname + '?action=toggle_like', {
+            fetch('weride_insides.php?action=toggle_like', {
                 method: 'POST',
                 body: formData
             })
@@ -2369,7 +2369,7 @@ $user_initials = get_initials($current_user_name);
             formData.append('post_id', postId);
             formData.append('comment', text);
 
-            fetch(window.location.pathname + '?action=add_comment', {
+            fetch('weride_insides.php?action=add_comment', {
                 method: 'POST',
                 body: formData
             })
@@ -2409,7 +2409,7 @@ $user_initials = get_initials($current_user_name);
             formData.append('action', 'delete_post');
             formData.append('post_id', postId);
 
-            fetch(window.location.pathname + '?action=delete_post', {
+            fetch('weride_insides.php?action=delete_post', {
                 method: 'POST',
                 body: formData
             })
@@ -2434,7 +2434,7 @@ $user_initials = get_initials($current_user_name);
             formData.append('action', 'delete_comment');
             formData.append('comment_id', commentId);
 
-            fetch(window.location.pathname + '?action=delete_comment', {
+            fetch('weride_insides.php?action=delete_comment', {
                 method: 'POST',
                 body: formData
             })
