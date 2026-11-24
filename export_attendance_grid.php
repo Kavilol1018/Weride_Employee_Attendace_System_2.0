@@ -130,11 +130,8 @@ while ($emp = mysqli_fetch_assoc($emp_query)) {
         $is_before_onboarding = ($onboarding_time > 0 && $current_date_time < $onboarding_time);
         
         $status = '';
-        // 1. Check before onboarding
-        if ($is_before_onboarding) {
-            $status = 'BO';
-            $before_onboarding_count++;
-        } elseif (isset($attendance[$emp_id][$d])) {
+        // 1. Check manual overrides / existing logs
+        if (isset($attendance[$emp_id][$d])) {
             $att_status = strtoupper(trim($attendance[$emp_id][$d]));
             if (in_array($att_status, ['P', 'PRESENT'])) {
                 $status = 'P';
@@ -194,6 +191,9 @@ while ($emp = mysqli_fetch_assoc($emp_query)) {
         } elseif ($is_weekend) {
             $status = 'WO';
             $weekend_count++;
+        } elseif ($is_before_onboarding) {
+            $status = 'BO';
+            $before_onboarding_count++;
         } elseif (isset($leaves[$emp_id][$d])) {
             $status = $leaves[$emp_id][$d];
             if ($status == 'AL') {

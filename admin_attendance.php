@@ -663,13 +663,8 @@ $text_color_map = [
                             
                             $status = '';
                             
-                            // 1. Check before onboarding
-                            if ($is_before_onboarding) {
-                                $status = 'BO';
-                                $before_onboarding_count++;
-                            } 
-                            // 2. Check manual overrides / existing logs
-                            elseif (isset($attendance[$emp_id][$d])) {
+                            // 1. Check manual overrides / existing logs
+                            if (isset($attendance[$emp_id][$d])) {
                                 $att_status = strtoupper(trim($attendance[$emp_id][$d]));
                                 if (in_array($att_status, ['P', 'PRESENT', 'LATE'])) {
                                     $status = ($att_status == 'LATE') ? 'LATE' : 'P';
@@ -720,15 +715,20 @@ $text_color_map = [
                                     }
                                 }
                             } 
-                            // 3. Check Public Holidays from DB
+                            // 2. Check Public Holidays from DB
                             elseif (isset($public_holidays_db[$d])) {
                                 $status = 'PH';
                                 $public_holiday_count++;
                             }
-                            // 4. Check weekends
+                            // 3. Check weekends
                             elseif ($is_weekend) {
                                 $status = 'WO';
                                 $weekend_count++;
+                            } 
+                            // 4. Check before onboarding (weekdays before onboarding date)
+                            elseif ($is_before_onboarding) {
+                                $status = 'BO';
+                                $before_onboarding_count++;
                             } 
                             // 5. Check leaves
                             elseif (isset($leaves[$emp_id][$d])) {
