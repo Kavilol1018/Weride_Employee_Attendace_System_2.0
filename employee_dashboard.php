@@ -172,6 +172,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             }
 
             $status = $today_att['status'] ?? 'P';
+            if ($status === 'A' || empty($status)) {
+                $status = 'P';
+            }
             mysqli_query($conn, "UPDATE attendance_logs SET clock_out = NOW(), status = '$status', flag = '$new_flag', work_hours = GREATEST(0, TIMESTAMPDIFF(MINUTE, clock_in, NOW())/60.0) WHERE emp_id = '$current_employee_id' AND date = CURDATE()");
             
             if ($is_early) {
