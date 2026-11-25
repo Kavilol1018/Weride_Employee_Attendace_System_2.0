@@ -24,82 +24,88 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['leave_action'])) {
             $status_message = "Leave request approved and forwarded to HR.";
             notify_employee($conn, $emp_id, "Leave Request Update", "Your $leave_type request ($start_date) was approved by your leader and forwarded to HR.", "employee_leave_history.php");
         } else {
-            mysqli_query($conn, "UPDATE leave_requests SET status = 'approved' WHERE id = $leave_id");
-            
-            // Fetch the stored duration directly from the leave request (safely)
-            $lr_data_q = @mysqli_query($conn, "SELECT duration, start_date, end_date FROM leave_requests WHERE id = $leave_id");
+            // Check previous status to prevent double-deducting balance on re-approval
+            $lr_data_q = @mysqli_query($conn, "SELECT status, duration, start_date, end_date FROM leave_requests WHERE id = $leave_id");
             $lr_data = $lr_data_q ? mysqli_fetch_assoc($lr_data_q) : null;
-            
-            if ($lr_data && !empty($lr_data['duration']) && (float)$lr_data['duration'] > 0) {
-                $days = (float)$lr_data['duration'];
+            $prev_status = strtolower($lr_data['status'] ?? '');
+
+            if ($prev_status === 'approved') {
+                $status_message = "Leave request is already approved.";
             } else {
-                $fallback_start = $lr_data['start_date'] ?? $start_date;
-                $fallback_end = $lr_data['end_date'] ?? $end_date ?? $fallback_start;
+                mysqli_query($conn, "UPDATE leave_requests SET status = 'approved' WHERE id = $leave_id");
                 
-                $start_dt = new DateTime($fallback_start);
-                $end_dt = new DateTime($fallback_end);
-                $days = 0;
+                // Fetch the stored duration directly from the leave request (safely)
+                if ($lr_data && !empty($lr_data['duration']) && (float)$lr_data['duration'] > 0) {
+                    $days = (float)$lr_data['duration'];
+                } else {
+                    $fallback_start = $lr_data['start_date'] ?? $start_date;
+                    $fallback_end = $lr_data['end_date'] ?? $end_date ?? $fallback_start;
+                    
+                    $start_dt = new DateTime($fallback_start);
+                    $end_dt = new DateTime($fallback_end);
+                    $days = 0;
+                    $current_dt = clone $start_dt;
+                    while ($current_dt <= $end_dt) {
+                        $dow = (int)$current_dt->format('w');
+                        if ($dow !== 0 && $dow !== 6) $days++; // Skip weekends
+                        $current_dt->modify('+1 day');
+                    }
+                }
+                $abbr = 'L';
+                $lt = strtoupper($leave_type);
+                $is_half = ($days == 0.5 || strpos($lt, 'HALF') !== false);
+                if ($is_half) { $days = 0.5; }
+                
+                if (strpos($lt, 'EMERGENCY') !== false) { $abbr = 'AL'; }
+                elseif (strpos($lt, 'ANNUAL') !== false) { $abbr = 'AL'; }
+                elseif (strpos($lt, 'SICK') !== false) { $abbr = 'SL'; }
+                elseif (strpos($lt, 'UNPLANNED') !== false) { $abbr = 'UL'; }
+                elseif (strpos($lt, 'UNPAID') !== false) { $abbr = 'UPL'; }
+                elseif (strpos($lt, 'HOSPITALIZATION') !== false) { $abbr = 'HL'; }
+
+                if ($is_half && ($abbr === 'AL' || $abbr === 'SL')) {
+                    $log_status = '0.5 ' . $abbr;
+                } elseif ($is_half && $abbr === 'UPL') {
+                    $log_status = '0.5UPL';
+                } else {
+                    $log_status = $is_half ? 'HD' : $abbr;
+                }
+
+                $start_dt = new DateTime($start_date);
+                $end_dt = new DateTime($end_date);
+
                 $current_dt = clone $start_dt;
                 while ($current_dt <= $end_dt) {
-                    $dow = (int)$current_dt->format('w');
-                    if ($dow !== 0 && $dow !== 6) $days++; // Skip weekends
+                    $day_of_week = (int)$current_dt->format('w'); // 0=Sun, 6=Sat
+                    if ($day_of_week !== 0 && $day_of_week !== 6) {
+                        $date_str = $current_dt->format('Y-m-d');
+                        $concat_sql = "IF(status LIKE '0.5%' AND '$log_status' LIKE '0.5%' AND status != '$log_status' AND status NOT LIKE '%$log_status%', CONCAT(status, ' / ', '$log_status'), '$log_status')";
+                        mysqli_query($conn, "INSERT INTO attendance_logs (emp_id, date, status, source) VALUES ('$emp_id', '$date_str', '$log_status', 'leave_form') ON DUPLICATE KEY UPDATE status = $concat_sql, source = 'leave_form'");
+                    }
                     $current_dt->modify('+1 day');
                 }
-            }
-            $abbr = 'L';
-            $lt = strtoupper($leave_type);
-            $is_half = ($days == 0.5 || strpos($lt, 'HALF') !== false);
-            if ($is_half) { $days = 0.5; }
-            
-            if (strpos($lt, 'EMERGENCY') !== false) { $abbr = 'AL'; }
-            elseif (strpos($lt, 'ANNUAL') !== false) { $abbr = 'AL'; }
-            elseif (strpos($lt, 'SICK') !== false) { $abbr = 'SL'; }
-            elseif (strpos($lt, 'UNPLANNED') !== false) { $abbr = 'UL'; }
-            elseif (strpos($lt, 'UNPAID') !== false) { $abbr = 'UPL'; }
-            elseif (strpos($lt, 'HOSPITALIZATION') !== false) { $abbr = 'HL'; }
 
-            if ($is_half && ($abbr === 'AL' || $abbr === 'SL')) {
-                $log_status = '0.5 ' . $abbr;
-            } elseif ($is_half && $abbr === 'UPL') {
-                $log_status = '0.5UPL';
-            } else {
-                $log_status = $is_half ? 'HD' : $abbr;
-            }
+                $emp_q = mysqli_query($conn, "SELECT employment_type FROM employees WHERE emp_id = '$emp_id'");
+                $emp_d = mysqli_fetch_assoc($emp_q);
+                $emp_type = strtolower($emp_d['employment_type'] ?? 'full_time');
 
-            $start_dt = new DateTime($start_date);
-            $end_dt = new DateTime($end_date);
-
-            $current_dt = clone $start_dt;
-            while ($current_dt <= $end_dt) {
-                $day_of_week = (int)$current_dt->format('w'); // 0=Sun, 6=Sat
-                if ($day_of_week !== 0 && $day_of_week !== 6) {
-                    $date_str = $current_dt->format('Y-m-d');
-                    $concat_sql = "IF(status LIKE '0.5%' AND '$log_status' LIKE '0.5%' AND status != '$log_status' AND status NOT LIKE '%$log_status%', CONCAT(status, ' / ', '$log_status'), '$log_status')";
-                    mysqli_query($conn, "INSERT INTO attendance_logs (emp_id, date, status, source) VALUES ('$emp_id', '$date_str', '$log_status', 'leave_form') ON DUPLICATE KEY UPDATE status = $concat_sql, source = 'leave_form'");
+                if ($abbr === 'AL') {
+                    mysqli_query($conn, "UPDATE employees SET annual_leave_balance = GREATEST(0, annual_leave_balance - $days) WHERE emp_id = '$emp_id'");
+                } elseif ($abbr === 'SL' || $abbr === 'UL') {
+                    if ($emp_type !== 'intern') {
+                        mysqli_query($conn, "UPDATE employees SET sick_leave_balance = GREATEST(0, sick_leave_balance - $days) WHERE emp_id = '$emp_id'");
+                    }
+                } elseif ($abbr === 'UPL') {
+                    mysqli_query($conn, "UPDATE employees SET unpaid_leave_balance = unpaid_leave_balance + $days WHERE emp_id = '$emp_id'");
+                } elseif ($abbr === 'HL') {
+                    if ($emp_type !== 'intern') {
+                        mysqli_query($conn, "UPDATE employees SET hospitalization_leave_balance = GREATEST(0, hospitalization_leave_balance - $days) WHERE emp_id = '$emp_id'");
+                    }
                 }
-                $current_dt->modify('+1 day');
+                $status_message = "Leave request approved successfully.";
+                $msg = "Your leave request ($leave_type for $start_date) was approved.";
+                notify_employee($conn, $emp_id, "Leave Request Approved", $msg, "employee_leave_history.php");
             }
-
-            $emp_q = mysqli_query($conn, "SELECT employment_type FROM employees WHERE emp_id = '$emp_id'");
-            $emp_d = mysqli_fetch_assoc($emp_q);
-            $emp_type = strtolower($emp_d['employment_type'] ?? 'full_time');
-
-            if ($abbr === 'AL') {
-                mysqli_query($conn, "UPDATE employees SET annual_leave_balance = GREATEST(0, annual_leave_balance - $days) WHERE emp_id = '$emp_id'");
-            } elseif ($abbr === 'SL' || $abbr === 'UL') {
-                if ($emp_type !== 'intern') {
-                    mysqli_query($conn, "UPDATE employees SET sick_leave_balance = GREATEST(0, sick_leave_balance - $days) WHERE emp_id = '$emp_id'");
-                }
-            } elseif ($abbr === 'UPL') {
-                mysqli_query($conn, "UPDATE employees SET unpaid_leave_balance = unpaid_leave_balance + $days WHERE emp_id = '$emp_id'");
-            } elseif ($abbr === 'HL') {
-                if ($emp_type !== 'intern') {
-                    mysqli_query($conn, "UPDATE employees SET hospitalization_leave_balance = GREATEST(0, hospitalization_leave_balance - $days) WHERE emp_id = '$emp_id'");
-                }
-            }
-            $status_message = "Leave request approved successfully.";
-            $msg = "Your leave request ($leave_type for $start_date) was approved.";
-            notify_employee($conn, $emp_id, "Leave Request Approved", $msg, "employee_leave_history.php");
         }
     } elseif ($action == 'reject') {
         $rejection_topic = mysqli_real_escape_string($conn, $_POST['rejection_topic'] ?? 'Other');
