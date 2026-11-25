@@ -1130,6 +1130,18 @@ body.dark-mode .feed-mobile-badge {
             </li>
         </a>
 
+        <?php if ($role_slug === 'admin' || $role_slug === 'hr'): ?>
+        <!-- Database Backup (Admin / HR) -->
+        <a href="admin_backup.php" style="text-decoration: none;">
+            <li class="nav-item <?php echo $current_page == 'admin_backup.php' ? 'active' : ''; ?>" style="display: flex; align-items: center; justify-content: space-between;">
+                <span style="display: flex; align-items: center; gap: 8px;">
+                    <span>Database Backup</span>
+                </span>
+                <span style="font-size: 10px; background: #059669; color: white; padding: 2px 7px; border-radius: 999px; font-weight: 700; letter-spacing: 0.5px;">SQL</span>
+            </li>
+        </a>
+        <?php endif; ?>
+
         <!-- Profile -->
         <li class="nav-item <?php echo $current_page == 'profile.php' ? 'active' : ''; ?>">
             <a href="profile.php"
