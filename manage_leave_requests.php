@@ -729,6 +729,7 @@ if ($emp_dropdown_res) {
             const alOption = typeSelect.querySelector('option[value="Annual Leave"]');
             const slOption = typeSelect.querySelector('option[value="Sick Leave"]');
             const elOption = typeSelect.querySelector('option[value="Emergency Leave"]');
+            const hlOption = typeSelect.querySelector('option[value="Hospitalization Leave"]');
             
             if (alOption) {
                 if (alBal <= 0 || empType === 'intern') {
@@ -758,6 +759,16 @@ if ($emp_dropdown_res) {
                 } else {
                     slOption.disabled = false;
                     slOption.textContent = 'Sick Leave';
+                }
+            }
+            if (hlOption) {
+                if (empType === 'intern') {
+                    hlOption.disabled = true;
+                    hlOption.textContent = 'Hospitalization Leave (Not eligible)';
+                    if (type === 'Hospitalization Leave') typeSelect.value = '';
+                } else {
+                    hlOption.disabled = false;
+                    hlOption.textContent = 'Hospitalization Leave';
                 }
             }
 
