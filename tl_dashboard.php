@@ -8,9 +8,10 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'tl') {
 
 $current_employee_id = $_SESSION['emp_id']; 
 
-$emp_query = mysqli_query($conn, "SELECT employment_type, lunch_window, name, annual_leave_balance, sick_leave_balance, shift_hour, profile_picture, welabel_id FROM employees WHERE emp_id = '$current_employee_id'");
+$emp_query = mysqli_query($conn, "SELECT employment_type, lunch_window, name, annual_leave_balance, sick_leave_balance, shift_hour, profile_picture, welabel_id, is_muslim FROM employees WHERE emp_id = '$current_employee_id'");
 $emp_data = mysqli_fetch_assoc($emp_query);
 $employment_type = $emp_data['employment_type'] ?? 'full_time';
+$is_muslim = (int)($emp_data['is_muslim'] ?? 0);
 $lunch_window = $emp_data['lunch_window'] ?? '12:00-13:00';
 $employee_name = $emp_data['name'] ?? "Employee #" . $current_employee_id;
 $al_bal = $emp_data['annual_leave_balance'] ?? 8;
@@ -196,6 +197,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $reason_text = mysqli_real_escape_string($conn, $_POST['reason']);
         $reason = $type . " - " . $reason_text;
         $duration = isset($_POST['duration']) && $_POST['duration'] !== '' ? (int)$_POST['duration'] : 60;
+
+        // Restriction: Friday Prayer override is strictly reserved for authorized Muslim staff
+        $is_prayer_req = (stripos($type, 'prayer') !== false || stripos($reason_text, 'prayer') !== false || stripos($reason_text, 'solat') !== false || stripos($reason_text, 'jumaat') !== false);
+        if ($is_prayer_req && empty($is_muslim)) {
+            header("Location: tl_dashboard.php?msg=" . urlencode("Action Denied: Friday Prayer overrides are strictly reserved for authorized Muslim staff. Contact Admin/HR if this is an error."));
+            exit();
+        }
+
         mysqli_query($conn, "INSERT INTO break_override_requests (emp_id, reason, duration, status) VALUES ('$current_employee_id', '$reason', $duration, 'pending')");
         
         $alert_msg = mysqli_real_escape_string($conn, "New Override Request from $employee_name ($current_employee_id): $reason");
@@ -906,21 +915,34 @@ $vio_data_values = array_values($vio_data);
                 <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                 <input type="hidden" name="request_override" value="1">
                 
-                <select name="req_category" class="modal-input" required>
+                <select name="req_category" id="req_category_select" class="modal-input" required onchange="handleOverrideCategoryChange(this)">
                     <option value="" disabled selected>Select Override Type</option>
+                    <?php if (date('N') == 5 && !empty($is_muslim)): ?>
+                    <option value="Friday Prayer">🕌 Friday Prayer (90-120 mins)</option>
+                    <?php endif; ?>
                     <option value="Meeting">Overrunning meeting</option>
                     <option value="Personal">Personal Emergency</option>
                     <option value="Workload">Heavy Workload</option>
                     <option value="Other">Other</option>
                 </select>
                 
-                <input type="text" name="reason" class="modal-input" placeholder="e.g. Overrunning meeting with client" required>
+                <input type="text" name="reason" id="override_reason_input" class="modal-input" placeholder="e.g. Overrunning meeting with client" required>
                 
-                <input type="number" name="duration" class="modal-input" placeholder="Extra time in mins (put 0 if just going early)" required min="0">
+                <input type="number" name="duration" id="override_duration_input" class="modal-input" placeholder="Extra time in mins (put 0 if just going early)" required min="0">
                 
                 <button type="submit" class="btn-modal-orange">Submit Request Only</button>
                 <button type="submit" name="force_start" value="1" class="btn-modal-red">Request & Force Start Now</button>
             </form>
+            <script>
+                function handleOverrideCategoryChange(select) {
+                    const reasonInput = document.getElementById('override_reason_input');
+                    const durationInput = document.getElementById('override_duration_input');
+                    if (select.value === 'Friday Prayer') {
+                        if (reasonInput) reasonInput.value = 'Friday Prayer';
+                        if (durationInput) durationInput.value = '90';
+                    }
+                }
+            </script>
         </div>
     </div>
     
