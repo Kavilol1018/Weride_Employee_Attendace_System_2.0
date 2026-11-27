@@ -493,7 +493,7 @@ if (isset($_POST['reset_password'])) {
                                 echo "<td style='padding-right: 10px;'><input type='checkbox' name='selected_ids[]' value='" . $row['id'] . "' class='rowCheckbox' style='transform: scale(1.2); cursor: pointer;' onclick='updateBulkDeleteBtn()'></td>";
                                 echo "<td style='font-weight: 600; color: #0f172a;'>#" . htmlspecialchars($row['emp_id']) . "</td>";
                                 echo "<td style='font-weight: 600; color: #059669;'>" . htmlspecialchars($row['welabel_id'] ?? '') . "</td>";
-                                echo "<td style='font-weight: 500; text-transform: uppercase;'>" . htmlspecialchars($row['name']) . (!empty($row['is_muslim']) ? " <span title='Friday Prayer Eligible' style='font-size: 13px; cursor: help;'>🕌</span>" : "") . "</td>";
+                                echo "<td style='font-weight: 500; text-transform: uppercase;'>" . htmlspecialchars($row['name']) . "</td>";
                                 echo "<td><span style='background: {$color['bg']}; padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; color: {$color['text']};'>$display_type</span></td>";
                                 echo "<td><span style='background: #ecfdf5; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 700; color: #059669;'>" . $present_display . " Days</span></td>";
                                 echo "<td><span style='background: #fdf2f8; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 700; color: #db2777;'>" . $absence_display . " Days</span></td>";

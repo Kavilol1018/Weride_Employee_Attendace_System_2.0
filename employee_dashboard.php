@@ -1054,7 +1054,7 @@ $status_message = isset($_GET['msg']) ? htmlspecialchars($_GET['msg']) : "";
                 <select name="req_category" id="req_category_select" class="modal-input" required onchange="handleOverrideCategoryChange(this)">
                     <option value="" disabled selected>Select Override Type</option>
                     <?php if (date('N') == 5 && !empty($is_muslim)): ?>
-                    <option value="Friday Prayer">🕌 Friday Prayer (90-120 mins)</option>
+                    <option value="Friday Prayer">Friday Prayer (90-120 mins)</option>
                     <?php endif; ?>
                     <option value="Meeting">Overrunning meeting</option>
                     <option value="Personal">Personal Emergency</option>
