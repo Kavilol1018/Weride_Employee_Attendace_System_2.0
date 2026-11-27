@@ -48,9 +48,8 @@ if (isset($_POST['add_employee'])) {
     $al_balance = $is_intern ? 0.0 : 8.0;
     $sl_balance = $is_intern ? 0.0 : 14.0;
     $hosp_balance = $is_intern ? 0.0 : 60.0;
-    $is_muslim = isset($_POST['is_muslim']) ? (int)$_POST['is_muslim'] : 0;
 
-    $sql = "INSERT INTO employees (emp_id, welabel_id, name, password, employment_type, role, is_muslim, shift_hour, lunch_window, group_leader_id, onboarding_date, annual_leave_balance, sick_leave_balance, hospitalization_leave_balance, unpaid_leave_balance) VALUES ('$emp_id', '$welabel_id', '$name', '$password', '$employment_type', '$role', $is_muslim, '$shift_hour', '$lunch_window', '$group_leader_id', '$onboarding_date', $al_balance, $sl_balance, $hosp_balance, 0.0)";
+    $sql = "INSERT INTO employees (emp_id, welabel_id, name, password, employment_type, role, shift_hour, lunch_window, group_leader_id, onboarding_date, annual_leave_balance, sick_leave_balance, hospitalization_leave_balance, unpaid_leave_balance) VALUES ('$emp_id', '$welabel_id', '$name', '$password', '$employment_type', '$role', '$shift_hour', '$lunch_window', '$group_leader_id', '$onboarding_date', $al_balance, $sl_balance, $hosp_balance, 0.0)";
     mysqli_query($conn, $sql);
     
     // Refresh page to clear the form
@@ -84,13 +83,12 @@ if (isset($_POST['edit_employee'])) {
     }
 
     $is_intern = (stripos($employment_type, 'intern') !== false);
-    $is_muslim = isset($_POST['is_muslim']) ? (int)$_POST['is_muslim'] : 0;
     $leave_sync_sql = "";
     if ($is_intern) {
         $leave_sync_sql = ", annual_leave_balance = 0.0, sick_leave_balance = 0.0, hospitalization_leave_balance = 0.0";
     }
 
-    $sql = "UPDATE employees SET emp_id='$emp_id', welabel_id='$welabel_id', name='$name', employment_type='$employment_type', role='$role', is_muslim=$is_muslim, shift_hour='$shift_hour', lunch_window='$lunch_window', group_leader_id='$group_leader_id', onboarding_date=$onb_sql $leave_sync_sql WHERE id='$edit_id'";
+    $sql = "UPDATE employees SET emp_id='$emp_id', welabel_id='$welabel_id', name='$name', employment_type='$employment_type', role='$role', shift_hour='$shift_hour', lunch_window='$lunch_window', group_leader_id='$group_leader_id', onboarding_date=$onb_sql $leave_sync_sql WHERE id='$edit_id'";
     mysqli_query($conn, $sql);
     
     $qs = $_SERVER['QUERY_STRING'] ? '?' . $_SERVER['QUERY_STRING'] : ''; header("Location: admin_employees.php" . $qs);
@@ -653,12 +651,6 @@ if (isset($_POST['reset_password'])) {
                 <label class="form-label">Onboarding Date</label>
                 <input type="date" name="onboarding_date" id="add_onboarding_date" class="form-input" value="<?php echo date('Y-m-d'); ?>">
 
-                <label class="form-label">Friday Prayer Eligible (Muslim Staff)</label>
-                <select name="is_muslim" class="form-input">
-                    <option value="0">No (Non-Muslim)</option>
-                    <option value="1">Yes (Muslim Staff)</option>
-                </select>
-
                 <button type="submit" name="add_employee" class="btn-primary" style="width: 100%; margin-top: 10px;">Save Employee</button>
             </form>
         </div>
@@ -722,12 +714,6 @@ if (isset($_POST['reset_password'])) {
 
                 <label class="form-label">Onboarding Date</label>
                 <input type="date" name="onboarding_date" id="edit_onboarding_date" class="form-input">
-
-                <label class="form-label">Friday Prayer Eligible (Muslim Staff)</label>
-                <select name="is_muslim" id="edit_is_muslim" class="form-input">
-                    <option value="0">No (Non-Muslim)</option>
-                    <option value="1">Yes (Muslim Staff)</option>
-                </select>
 
                 <button type="submit" name="edit_employee" class="btn-primary" style="width: 100%; margin-top: 10px;">Update Employee</button>
             </form>
@@ -843,7 +829,6 @@ if (isset($_POST['reset_password'])) {
             if (shiftSelects.length > 0) shiftSelects[0].value = row.shift_hour || '09:00-18:00';
             document.getElementById('edit_group_leader_id').value = row.group_leader_id || '';
             document.getElementById('edit_onboarding_date').value = row.onboarding_date || '';
-            document.getElementById('edit_is_muslim').value = (row.is_muslim == 1) ? '1' : '0';
             
             roleSelect.dispatchEvent(new Event('change'));
             
