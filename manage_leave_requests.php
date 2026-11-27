@@ -7,7 +7,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] === 'employee') {
 include 'db_connect.php';
 
 $role = $_SESSION['role'];
-$status_message = "";
+$status_message = $_GET['msg'] ?? "";
 
 // Handle Leave Requests (Emergency Leave, Half Day, Annual, Sick)
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['leave_action'])) {
@@ -175,6 +175,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['leave_action'])) {
             mysqli_query($conn, "INSERT INTO employee_notifications (emp_id, message) VALUES ('$emp_id', '$msg')");
         }
     }
+    if (!empty($status_message)) {
+        header("Location: manage_leave_requests.php?msg=" . urlencode($status_message));
+        exit();
+    }
 }
 
 // Handle Force Actions (Admin, HR, TL) - Apply Leave on Behalf
@@ -207,6 +211,23 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['force_action'])) {
                 }
             } elseif ($leave_type === 'Sick Leave' && empty($error) && $duration > $sl_bal) {
                 $error = "Cannot apply for more Sick Leave days ($duration) than employee's remaining balance ($sl_bal).";
+            }
+            
+            // Deduplication Check 1: Prevent rapid double-clicks (same employee, leave type, and dates within last 2 minutes)
+            if (empty($error)) {
+                $recent_dup = mysqli_query($conn, "SELECT id FROM leave_requests WHERE emp_id = '$emp_id' AND start_date = '$start_date' AND end_date = '$end_date' AND leave_type = '$leave_type' AND created_at >= DATE_SUB(NOW(), INTERVAL 2 MINUTE) LIMIT 1");
+                if ($recent_dup && mysqli_num_rows($recent_dup) > 0) {
+                    $error = "This leave request was already submitted just now. Please avoid duplicate submissions.";
+                }
+            }
+
+            // Deduplication Check 2: Check if employee already has an active pending or approved leave on these dates
+            if (empty($error)) {
+                $active_dup = mysqli_query($conn, "SELECT id, leave_type FROM leave_requests WHERE emp_id = '$emp_id' AND start_date = '$start_date' AND end_date = '$end_date' AND status IN ('pending', 'pending_hr', 'approved') LIMIT 1");
+                if ($active_dup && mysqli_num_rows($active_dup) > 0) {
+                    $dup_row = mysqli_fetch_assoc($active_dup);
+                    $error = "Employee already has an active " . htmlspecialchars($dup_row['leave_type']) . " request for this date range ($start_date to $end_date).";
+                }
             }
             
             $mc_path = '';
@@ -297,12 +318,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['force_action'])) {
                 } else {
                     $status_message = "Leave applied on behalf successfully and forwarded to HR.";
                 }
+                header("Location: manage_leave_requests.php?msg=" . urlencode($status_message));
+                exit();
             } else {
-                $status_message = $error;
+                header("Location: manage_leave_requests.php?msg=" . urlencode("Error: " . $error));
+                exit();
             }
         }
     } else {
-        $status_message = "Employee ID not found.";
+        header("Location: manage_leave_requests.php?msg=" . urlencode("Employee ID not found."));
+        exit();
     }
 }
 
@@ -489,8 +514,11 @@ if ($emp_dropdown_res) {
 
         <div class="content">
             <?php if ($status_message): ?>
-                <div class="toast-success">
-                    ✅ <?php echo htmlspecialchars($status_message); ?>
+                <?php 
+                $is_err = (stripos($status_message, 'Error') !== false || stripos($status_message, 'already') !== false || stripos($status_message, 'Cannot') !== false || stripos($status_message, 'not found') !== false);
+                ?>
+                <div class="toast-success" style="<?php echo $is_err ? 'background:#ef4444; color:white; border-color:#dc2626;' : ''; ?>">
+                    <?php echo $is_err ? '⚠️ ' : '✅ '; ?><?php echo htmlspecialchars($status_message); ?>
                 </div>
             <?php endif; ?>
 
@@ -505,7 +533,7 @@ if ($emp_dropdown_res) {
                         <input type="text" id="searchInput" class="search-input" oninput="searchLeaveRequests()" placeholder="Search employee, ID, leave type, reason...">
                         <button type="button" id="clearSearchBtn" class="clear-search-btn" onclick="clearSearch()" title="Clear search">&times;</button>
                     </div>
-                    <button onclick="document.getElementById('forceActionModal').style.display='flex'" class="text-white" style="background: #3b82f6; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);">
+                    <button onclick="openForceActionModal()" class="text-white" style="background: #3b82f6; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);">
                         Apply Leave on Behalf
                     </button>
                 </div>
@@ -613,7 +641,7 @@ if ($emp_dropdown_res) {
                 3. Sick leave, unpaid leave, annual leave will be applied as per usual using this form. (Max 5 employees company-wide on Annual Leave per day).
             </div>
             
-            <form method="POST" action="" enctype="multipart/form-data" style="text-align: left;">
+            <form method="POST" action="" enctype="multipart/form-data" id="forceActionForm" onsubmit="return handleForceActionSubmit(this);" style="text-align: left;">
                 <input type="hidden" name="force_action" value="1">
                 <input type="hidden" name="force_type" value="leave">
                 
@@ -692,7 +720,7 @@ if ($emp_dropdown_res) {
                     </div>
                 </div>
 
-                <button type="submit" class="btn-submit text-white" style="width:100%; padding:14px; background:#3b82f6; border:none; border-radius:8px; font-size: 16px; font-weight:700; cursor:pointer; transition: 0.2s;">Submit Force Action</button>
+                <button type="submit" id="forceActionSubmitBtn" class="btn-submit text-white" style="width:100%; padding:14px; background:#3b82f6; border:none; border-radius:8px; font-size: 16px; font-weight:700; cursor:pointer; transition: 0.2s;">Submit Force Action</button>
             </form>
         </div>
     </div>
@@ -701,6 +729,34 @@ if ($emp_dropdown_res) {
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
         const employeeData = <?php echo json_encode($employee_data_js); ?>;
+        
+        let isForceSubmitting = false;
+        function openForceActionModal() {
+            isForceSubmitting = false;
+            const btn = document.getElementById('forceActionSubmitBtn');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerText = 'Submit Force Action';
+                btn.style.opacity = '1';
+                btn.style.cursor = 'pointer';
+            }
+            document.getElementById('forceActionModal').style.display = 'flex';
+        }
+
+        function handleForceActionSubmit(form) {
+            if (isForceSubmitting) {
+                return false;
+            }
+            const btn = document.getElementById('forceActionSubmitBtn');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = 'Submitting...';
+                btn.style.opacity = '0.7';
+                btn.style.cursor = 'not-allowed';
+            }
+            isForceSubmitting = true;
+            return true;
+        }
         
         function toggleLeaveModalFields(source = null) {
             const type = document.querySelector('select[name="force_leave_type"]').value;
