@@ -35,8 +35,9 @@ if (isset($_POST['add_employee'])) {
     $al_balance = $is_intern ? 0.0 : 8.0;
     $sl_balance = $is_intern ? 0.0 : 14.0;
     $hosp_balance = $is_intern ? 0.0 : 60.0;
+    $is_muslim = isset($_POST['is_muslim']) ? (int)$_POST['is_muslim'] : 0;
 
-    $sql = "INSERT INTO employees (emp_id, welabel_id, name, password, employment_type, role, shift_hour, lunch_window, group_leader_id, onboarding_date, annual_leave_balance, sick_leave_balance, hospitalization_leave_balance, unpaid_leave_balance) VALUES ('$emp_id', '$welabel_id', '$name', '$password', '$employment_type', '$role', '$shift_hour', '$lunch_window', '$gl_emp_id', '$onboarding_date', $al_balance, $sl_balance, $hosp_balance, 0.0)";
+    $sql = "INSERT INTO employees (emp_id, welabel_id, name, password, employment_type, role, is_muslim, shift_hour, lunch_window, group_leader_id, onboarding_date, annual_leave_balance, sick_leave_balance, hospitalization_leave_balance, unpaid_leave_balance) VALUES ('$emp_id', '$welabel_id', '$name', '$password', '$employment_type', '$role', $is_muslim, '$shift_hour', '$lunch_window', '$gl_emp_id', '$onboarding_date', $al_balance, $sl_balance, $hosp_balance, 0.0)";
     mysqli_query($conn, $sql);
     
     $qs = $_SERVER['QUERY_STRING'] ? '?' . $_SERVER['QUERY_STRING'] : ''; header("Location: gl_employees.php" . $qs);
@@ -68,12 +69,13 @@ if (isset($_POST['edit_employee'])) {
     }
 
     $is_intern = (stripos($employment_type, 'intern') !== false);
+    $is_muslim = isset($_POST['is_muslim']) ? (int)$_POST['is_muslim'] : 0;
     $leave_sync_sql = "";
     if ($is_intern) {
         $leave_sync_sql = ", annual_leave_balance = 0.0, sick_leave_balance = 0.0, hospitalization_leave_balance = 0.0";
     }
 
-    $sql = "UPDATE employees SET emp_id='$emp_id', welabel_id='$welabel_id', name='$name', employment_type='$employment_type', role='$role', shift_hour='$shift_hour', lunch_window='$lunch_window', onboarding_date=$onb_sql $leave_sync_sql WHERE id='$edit_id'";
+    $sql = "UPDATE employees SET emp_id='$emp_id', welabel_id='$welabel_id', name='$name', employment_type='$employment_type', role='$role', is_muslim=$is_muslim, shift_hour='$shift_hour', lunch_window='$lunch_window', onboarding_date=$onb_sql $leave_sync_sql WHERE id='$edit_id'";
     mysqli_query($conn, $sql);
     
     $qs = $_SERVER['QUERY_STRING'] ? '?' . $_SERVER['QUERY_STRING'] : ''; header("Location: gl_employees.php" . $qs);
@@ -527,7 +529,7 @@ if (isset($_POST['reset_password'])) {
                                 echo "<td style='padding-right: 10px;'><input type='checkbox' name='selected_ids[]' value='" . $row['id'] . "' class='rowCheckbox' style='transform: scale(1.2); cursor: pointer;' onclick='updateBulkDeleteBtn()'></td>";
                                 echo "<td style='font-weight: 600; color: #0f172a;'>#" . htmlspecialchars($row['emp_id']) . "</td>";
                                 echo "<td style='font-weight: 600; color: #059669;'>" . htmlspecialchars($row['welabel_id'] ?? '') . "</td>";
-                                echo "<td style='font-weight: 500; text-transform: uppercase;'>" . htmlspecialchars($row['name']) . "</td>";
+                                echo "<td style='font-weight: 500; text-transform: uppercase;'>" . htmlspecialchars($row['name']) . (!empty($row['is_muslim']) ? " <span title='Friday Prayer Eligible (Muslim Staff)' style='font-size: 13px; cursor: help;'>🕌</span>" : "") . "</td>";
                                 echo "<td><span style='background: {$color['bg']}; padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; color: {$color['text']};'>$display_type</span></td>";
                                 echo "<td><span style='background: #ecfdf5; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 700; color: #059669;'>" . $present_display . " Days</span></td>";
                                 echo "<td><span style='background: #fdf2f8; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 700; color: #db2777;'>" . $absence_display . " Days</span></td>";
@@ -538,7 +540,7 @@ if (isset($_POST['reset_password'])) {
                                         </button>
                                         <div class='dropdown-content'>
                                             <button type='button' onclick='openDetailsModal(\"" . htmlspecialchars($row['emp_id']) . "\", \"" . htmlspecialchars(addslashes($row['name'])) . "\", \"" . htmlspecialchars($row['employment_type']) . "\", \"" . htmlspecialchars($row['onboarding_date'] ?? '-') . "\", " . ($row['annual_leave_balance'] ?? 8) . ", " . ($row['sick_leave_balance'] ?? 14) . ", \"" . htmlspecialchars(['employee'=>'Data Annotator','qa'=>'Quality Assurance','tl'=>'Team Leader','gl'=>'Group Leader','hr'=>'Human Resources','admin'=>'Administrator'][strtolower($row['role'] ?? '')] ?? ($row['role'] ?? '')) . "\", \"" . htmlspecialchars($row['lunch_window'] ?? '') . "\", \"" . htmlspecialchars($row['shift_hour'] ?? '09:00-18:00') . "\", " . ($row['unpaid_leave_balance'] ?? 0) . ", " . ($row['hospitalization_leave_balance'] ?? 60) . ")'>ℹ️ Details</button>
-                                            <button type='button' onclick='openEditModal(" . $row['id'] . ", \"" . htmlspecialchars($row['emp_id'], ENT_QUOTES) . "\", \"" . htmlspecialchars($row['welabel_id'] ?? '', ENT_QUOTES) . "\", \"" . htmlspecialchars(addslashes($row['name'])) . "\", \"" . htmlspecialchars($row['employment_type'], ENT_QUOTES) . "\", \"" . htmlspecialchars($row['role'], ENT_QUOTES) . "\", \"" . htmlspecialchars($row['lunch_window'], ENT_QUOTES) . "\", \"" . htmlspecialchars($row['shift_hour'] ?? '09:00-18:00', ENT_QUOTES) . "\", \"" . htmlspecialchars($row['onboarding_date'] ?? '', ENT_QUOTES) . "\")'>✏️ Edit</button>
+                                            <button type='button' onclick='openEditModal(" . htmlspecialchars(json_encode($row), ENT_QUOTES, 'UTF-8') . ")'>✏️ Edit</button>
                                             
                                             <button type='button' onclick='resetPassword(" . $row['id'] . ", \"" . htmlspecialchars(addslashes($row['name'])) . "\")'>🔑 Reset Pwd</button>
                                             <button type='button' class='danger-item' onclick='deleteEmployee(" . $row['id'] . ", \"" . htmlspecialchars(addslashes($row['name'])) . "\")'>🗑️ Delete</button>
@@ -672,6 +674,13 @@ if (isset($_POST['reset_password'])) {
                 </select>
                 <label class="form-label">Onboarding Date</label>
                 <input type="date" name="onboarding_date" id="add_onboarding_date" class="form-input" value="<?php echo date('Y-m-d'); ?>">
+
+                <label class="form-label">Friday Prayer Eligible (Muslim Staff)</label>
+                <select name="is_muslim" class="form-input">
+                    <option value="0">No (Non-Muslim)</option>
+                    <option value="1">Yes (Muslim Staff)</option>
+                </select>
+
                 <button type="submit" name="add_employee" class="btn-primary" style="width: 100%; margin-top: 10px;">Save Employee</button>
             </form>
         </div>
@@ -726,6 +735,13 @@ if (isset($_POST['reset_password'])) {
                 </select>
                 <label class="form-label">Onboarding Date</label>
                 <input type="date" name="onboarding_date" id="edit_onboarding_date" class="form-input">
+
+                <label class="form-label">Friday Prayer Eligible (Muslim Staff)</label>
+                <select name="is_muslim" id="edit_is_muslim" class="form-input">
+                    <option value="0">No (Non-Muslim)</option>
+                    <option value="1">Yes (Muslim Staff)</option>
+                </select>
+
                 <button type="submit" name="edit_employee" class="btn-primary" style="width: 100%; margin-top: 10px;">Update Employee</button>
             </form>
         </div>
@@ -827,7 +843,27 @@ if (isset($_POST['reset_password'])) {
             document.getElementById('detailsModal').style.display = 'flex';
         }
 
-        function openEditModal(id, empId, welabelId, name, type, role, lunchWindow, shiftHour, onboardingDate = "") {
+        function openEditModal(rowOrId, empId, welabelId, name, type, role, lunchWindow, shiftHour, onboardingDate = "") {
+            if (typeof rowOrId === 'object') {
+                let row = rowOrId;
+                document.getElementById('edit_id').value = row.id;
+                document.getElementById('edit_emp_id').value = row.emp_id;
+                document.getElementById('edit_welabel_id').value = row.welabel_id || '';
+                document.getElementById('edit_name').value = row.name;
+                document.getElementById('edit_employment_type').value = row.employment_type;
+                document.getElementById('edit_role').value = row.role;
+                document.getElementById('edit_lunch_window').value = row.lunch_window;
+                let shiftSelects = document.querySelectorAll('#editModal .shift-hour-select');
+                if (shiftSelects.length > 0) shiftSelects[0].value = row.shift_hour || '09:00-18:00';
+                let onbInput = document.getElementById('edit_onboarding_date');
+                if (onbInput) onbInput.value = row.onboarding_date || '';
+                let isMuslimInput = document.getElementById('edit_is_muslim');
+                if (isMuslimInput) isMuslimInput.value = (row.is_muslim == 1) ? '1' : '0';
+                document.getElementById('editModal').style.display = 'flex';
+                return;
+            }
+
+            let id = rowOrId;
             document.getElementById('edit_id').value = id;
             document.getElementById('edit_emp_id').value = empId;
             document.getElementById('edit_welabel_id').value = welabelId;
@@ -838,6 +874,8 @@ if (isset($_POST['reset_password'])) {
             let shiftSelects = document.querySelectorAll('#editModal .shift-hour-select');
             if (shiftSelects.length > 0) shiftSelects[0].value = shiftHour || '09:00-18:00';
             let editOnb = document.getElementById('edit_onboarding_date'); if (editOnb) editOnb.value = onboardingDate || '';
+            let isMuslimInput = document.getElementById('edit_is_muslim');
+            if (isMuslimInput) isMuslimInput.value = '0';
             document.getElementById('editModal').style.display = 'flex';
         }
         

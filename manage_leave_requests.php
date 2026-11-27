@@ -181,8 +181,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['leave_action'])) {
     }
 }
 
-// Handle Force Actions (Admin, HR, TL) - Apply Leave on Behalf
+// Handle Force Actions (Admin, GL) - Apply Leave on Behalf
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['force_action'])) {
+    if (!in_array($_SESSION['role'], ['admin', 'gl'])) {
+        header("Location: manage_leave_requests.php?msg=" . urlencode("Error: Only Admin and Group Leaders can apply leave on behalf."));
+        exit();
+    }
     $emp_id = mysqli_real_escape_string($conn, $_POST['force_emp_id']);
     $force_type = mysqli_real_escape_string($conn, $_POST['force_type']);
     $start_date = mysqli_real_escape_string($conn, $_POST['start_date']);
@@ -533,9 +537,11 @@ if ($emp_dropdown_res) {
                         <input type="text" id="searchInput" class="search-input" oninput="searchLeaveRequests()" placeholder="Search employee, ID, leave type, reason...">
                         <button type="button" id="clearSearchBtn" class="clear-search-btn" onclick="clearSearch()" title="Clear search">&times;</button>
                     </div>
+                    <?php if (in_array($role, ['admin', 'gl'])): ?>
                     <button onclick="openForceActionModal()" class="text-white" style="background: #3b82f6; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);">
                         Apply Leave on Behalf
                     </button>
+                    <?php endif; ?>
                 </div>
             </div>
             
